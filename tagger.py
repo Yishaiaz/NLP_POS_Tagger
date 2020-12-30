@@ -69,6 +69,7 @@ def load_annotated_corpus(filename):
     return sentences
 
 
+
 START = "<DUMMY_START_TAG>"
 END = "<DUMMY_END_TAG>"
 UNK = "<UNKNOWN>"
@@ -102,7 +103,31 @@ def learn_params(tagged_sentences):
     [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
     # TODO complete the code
+    num_of_sentences = len(tagged_sentences)
+    all_possible_tags = []
 
+    for sentence in tagged_sentences:
+        prev_tag = START
+        for word_tag in sentence:
+            word, tag = word_tag
+            allTagCounts[tag] += 1
+            if perWordTagCounts.get(word) == None:
+                perWordTagCounts[word] = {}
+            if perWordTagCounts[word].get(tag) == None:
+                perWordTagCounts[word][tag] = 0
+            perWordTagCounts[word][tag] = perWordTagCounts.get((word), {}).get(tag, 0) + 1
+            transitionCounts[(prev_tag, tag)] = transitionCounts.get((prev_tag, tag), 0) + 1
+            emissionCounts[(tag, word)] = emissionCounts.get((tag, word), 0) + 1
+            prev_tag = tag
+        transitionCounts[(prev_tag, END)] = transitionCounts.get((prev_tag, END), 0) + 1
+    # Calc A & B (Probabilities)
+    total_number_of_tags = len(allTagCounts)
+    for tag_t in allTagCounts.keys():
+        for tag_t1 in allTagCounts.keys():
+            A[(tag_t, tag_t1)] = transitionCounts.get((tag_t, tag_t1), 1) / (allTagCounts[tag_t] + total_number_of_tags)
+    for word in perWordTagCounts.keys():
+        for tag in allTagCounts.keys():
+            B[(word, tag)] = perWordTagCounts[word].get(tag, 1) / (allTagCounts[tag] + total_number_of_tags)
     return [allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B]
 
 
