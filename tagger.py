@@ -76,9 +76,9 @@ UNK = "<UNKNOWN>"
 
 allTagCounts = Counter()
 # use Counters inside these
-perWordTagCounts = {}
-transitionCounts = {}
-emissionCounts = {}
+perWordTagCounts = Counter()
+transitionCounts = Counter()
+emissionCounts = Counter()
 # log probability distributions: do NOT use Counters inside these because
 # missing Counter entries default to 0, not log(0)
 A = {}  # transisions probabilities
@@ -112,7 +112,7 @@ def learn_params(tagged_sentences):
             word, tag = word_tag
             allTagCounts[tag] += 1
             if perWordTagCounts.get(word) == None:
-                perWordTagCounts[word] = {}
+                perWordTagCounts[word] = Counter()
             if perWordTagCounts[word].get(tag) == None:
                 perWordTagCounts[word][tag] = 0
             perWordTagCounts[word][tag] = perWordTagCounts.get((word), {}).get(tag, 0) + 1
