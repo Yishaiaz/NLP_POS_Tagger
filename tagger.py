@@ -20,24 +20,28 @@ import sys, os, time, platform, nltk, random
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 # You can call use_seed with other seeds or None (for complete randomization)
 # but DO NOT change the default value.
-def use_seed(seed = 1512021):
-    return random.seed(seed)
+def use_seed(seed=1512021):
+    random.seed(seed)
+    return seed
+
 
 SEED = use_seed()
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.set_deterministic(True)
-#torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.deterministic = True
+
 
 # utility functions to read the corpus
-def who_am_i(): #this is not a class method
+def who_am_i():  # this is not a class method
     """Returns a ductionary with your name, id number and email. keys=['name', 'id','email']
         Make sure you return your own info!
     """
-    #TODO edit the dictionary to have your own details
+    # TODO edit the dictionary to have your own details
     # if work is submitted by a pair of students, add the following keys: name2, id2, email2
     return {'name1': 'John Doe', 'id1': '012345678', 'email1': 'jdoe@post.bgu.ac.il'}
 
@@ -50,9 +54,10 @@ def read_annotated_sentence(f):
     while line and (line != "\n"):
         line = line.strip()
         word, tag = line.split("\t", 2)
-        sentence.append( (word, tag) )
+        sentence.append((word, tag))
         line = f.readline()
     return sentence
+
 
 def load_annotated_corpus(filename):
     sentences = []
@@ -75,8 +80,8 @@ transitionCounts = {}
 emissionCounts = {}
 # log probability distributions: do NOT use Counters inside these because
 # missing Counter entries default to 0, not log(0)
-A = {} #transisions probabilities
-B = {} #emmissions probabilities
+A = {}  # transisions probabilities
+B = {}  # emmissions probabilities
 
 
 def learn_params(tagged_sentences):
@@ -96,9 +101,9 @@ def learn_params(tagged_sentences):
     Return:
     [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
-    #TODO complete the code
+    # TODO complete the code
 
-    return [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B]
+    return [allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B]
 
 
 def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
@@ -116,13 +121,13 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         list: list of pairs
     """
 
-    #TODO complete the code
-
+    # TODO complete the code
+    tagged_sentence = []
     return tagged_sentence
 
-#===========================================
+# ===========================================
 #       POS tagging with HMM
-#===========================================
+# ===========================================
 
 
 def hmm_tag_sentence(sentence, A, B):
@@ -140,7 +145,7 @@ def hmm_tag_sentence(sentence, A, B):
     """
 
     #TODO complete the code
-
+    tagged_sentence = []
     return tagged_sentence
 
 def viterbi(sentence, A,B):
@@ -171,7 +176,7 @@ def viterbi(sentence, A,B):
 
 
     #TODO complete the code
-
+    v_last = []
     return v_last
 
 #a suggestion for a helper function. Not an API requirement
@@ -244,7 +249,7 @@ def initialize_rnn_model(params_d):
     """
 
     #TODO complete the code
-
+    model = []
     return model
 
 def get_model_params(model):
@@ -263,7 +268,7 @@ def get_model_params(model):
     """
 
     #TODO complete the code
-
+    params_d = {}
     return params_d
 
 def load_pretrained_embeddings(path):
@@ -274,6 +279,7 @@ def load_pretrained_embeddings(path):
         internaly in your code, so you can use the datastructure of your choice.
     """
     #TODO
+    vectors = []
     return vectors
 
 
@@ -316,7 +322,7 @@ def rnn_tag_sentence(sentence, model):
     """
 
     #TODO complete the code
-
+    tagged_sentence = ""
     return tagged_sentence
 
 def get_best_performing_model_params():
@@ -327,7 +333,7 @@ def get_best_performing_model_params():
                initialize_rnn_model() and train_lstm()
     """
     #TODO complete the code
-
+    model_params = {}
     return model_params
 
 
@@ -374,6 +380,7 @@ def tag_sentence(sentence, model):
     if model == 'cblstm':
         return rnn_tag_sentence(sentence, model.values()[0])
 
+
 def count_correct(gold_sentence, pred_sentence):
     """Return the total number of correctly predicted tags,the total number of
     correcttly predicted tags for oov words and the number of oov words in the
@@ -387,5 +394,5 @@ def count_correct(gold_sentence, pred_sentence):
     assert len(gold_sentence)==len(pred_sentence)
 
     #TODO complete the code
-
+    correct, correctOOV, OOV = "", "", ""
     return correct, correctOOV, OOV
