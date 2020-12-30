@@ -78,6 +78,7 @@ emissionCounts = {}
 A = {} #transisions probabilities
 B = {} #emmissions probabilities
 
+
 def learn_params(tagged_sentences):
     """Populates and returns the allTagCounts, perWordTagCounts, transitionCounts,
     and emissionCounts data-structures.
@@ -98,6 +99,7 @@ def learn_params(tagged_sentences):
     #TODO complete the code
 
     return [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B]
+
 
 def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
     """Returns a list of pairs (w,t) where each w corresponds to a word
