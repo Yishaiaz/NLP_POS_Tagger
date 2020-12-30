@@ -43,7 +43,8 @@ def who_am_i():  # this is not a class method
     """
     # TODO edit the dictionary to have your own details
     # if work is submitted by a pair of students, add the following keys: name2, id2, email2
-    return {'name1': 'John Doe', 'id1': '012345678', 'email1': 'jdoe@post.bgu.ac.il'}
+    return {'name1': 'Tamir Yaffe', 'id1': '305795239', 'email1': 'tamiry@post.bgu.ac.il',
+            'name2': 'Yishaia Zabary', 'id2': '307963538', 'email2': 'yishaiaz@post.bgu.ac.il'}
 
 
 def read_annotated_sentence(f):
@@ -148,6 +149,18 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
 
     # TODO complete the code
     tagged_sentence = []
+    for word in sentence:
+        if word in perWordTagCounts:
+            tags_counter = perWordTagCounts[word]
+            most_common_tag = tags_counter.most_common(1)[0][0]
+            word_tag_pair = (word, most_common_tag)
+        else:
+            tags = list(allTagCounts.keys())
+            tag_counts = np.array(list(allTagCounts.values())) / np.array(list(allTagCounts.values())).sum()
+            sampled_tag = np.random.choice(tags, p=tag_counts)
+            word_tag_pair = (word, sampled_tag)
+        tagged_sentence.append(word_tag_pair)
+
     return tagged_sentence
 
 # ===========================================
