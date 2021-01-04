@@ -299,7 +299,8 @@ def joint_prob(sentence, A, B):
     p = 0   # joint log prob. of words and tags
 
     #TODO complete the code
-
+    end_item = viterbi(sentence, A, B)
+    p = end_item[-1]
     assert isfinite(p) and p<0  # Should be negative. Think why!
     return p
 
