@@ -185,8 +185,11 @@ def hmm_tag_sentence(sentence, A, B):
     """
 
     #TODO complete the code
-    tagged_sentence = []
+    end_item = viterbi(sentence, A, B)
+    tags = retrace(end_item)
+    tagged_sentence = list(map(lambda x: (sentence[x], tags[x]), range(len(tags))))
     return tagged_sentence
+
 
 def viterbi(sentence, A,B):
     """Creates the Viterbi matrix, column by column. Each column is a list of
@@ -230,7 +233,7 @@ def viterbi(sentence, A,B):
         possible_tags = get_possible_tags(word)
         col = []
         for tag in possible_tags:
-            item = predict_next_best(word, tag, viterbi_matrix[-1])
+            item = predict_next_best(word, tag, viterbi_matrix[-1], A, B)
             col.append(item)
 
         viterbi_matrix.append(col)
@@ -252,10 +255,21 @@ def retrace(end_item):
         reversing it and returning the list). The list should correspond to the
         list of words in the sentence (same indices).
     """
+    tags = []
+    item = end_item
+    tag = item[0]
+
+    while tag is not START:
+        if tag is not END:
+            tags.append(tag)
+        item = item[1]
+        tag = item[0]
+
+    return tags[::-1]
 
 
 #a suggestion for a helper function. Not an API requirement
-def predict_next_best(word, tag, predecessor_list):
+def predict_next_best(word, tag, predecessor_list, A, B):
     """Returns a new item (tupple)
     """
     prev_best_item = None
@@ -263,7 +277,9 @@ def predict_next_best(word, tag, predecessor_list):
     # calculate best prev and log probability
 
     for prev_item in predecessor_list:
-        temp_log_prob_so_far = prev_item[-1] + math.log(A[(prev_item[0], tag)] * B[(word, tag)])
+        transition_prob = A[(prev_item[0], tag)]
+        emission_prob = B.get((word, tag), 1 / (allTagCounts[tag] + len(allTagCounts)))
+        temp_log_prob_so_far = prev_item[-1] + math.log(transition_prob * emission_prob)
         if temp_log_prob_so_far > log_prop_so_far:
             log_prop_so_far = temp_log_prob_so_far
             prev_best_item = prev_item
