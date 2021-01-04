@@ -6,6 +6,8 @@ to predict the part of speech sequence for a given sentence.
 (Adapted from Nathan Schneider)
 
 """
+import math
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -123,8 +125,8 @@ def learn_params(tagged_sentences):
         transitionCounts[(prev_tag, END)] = transitionCounts.get((prev_tag, END), 0) + 1
     # Calc A & B (Probabilities)
     total_number_of_tags = len(allTagCounts)
-    for tag_t in allTagCounts.keys():
-        for tag_t1 in allTagCounts.keys():
+    for tag_t in [START] + list(allTagCounts.keys()):
+        for tag_t1 in [END] + list(allTagCounts.keys()):
             A[(tag_t, tag_t1)] = transitionCounts.get((tag_t, tag_t1), 1) / (allTagCounts[tag_t] + total_number_of_tags)
     for word in perWordTagCounts.keys():
         for tag in allTagCounts.keys():
@@ -191,7 +193,7 @@ def viterbi(sentence, A,B):
     tuples representing cells. Each cell ("item") is a tupple (t,r,p), were
     t is the tag being scored at the current position,
     r is a reference to the corresponding best item from the previous position,
-    and p is a log probabilityof the sequence so far).
+    and p is a log probability of the sequence so far).
 
     The function returns the END item, from which it is possible to
     trace back to the beginning of the sentence.
@@ -213,9 +215,36 @@ def viterbi(sentence, A,B):
         # Hint 3: end the sequence with a dummy: the highest-scoring item with the tag END
 
 
-    #TODO complete the code
-    v_last = []
+
+    # Start with a dummy item  with the START tag (what would it log-prob be?).
+    # current list = [ the dummy item ]
+
+    current_tag = START
+    prev_best_item = None
+    log_prop_so_far = 0  # for summing the log probability
+
+    start_item = (current_tag, prev_best_item, log_prop_so_far)
+    viterbi_matrix = [[start_item]]
+
+    for word in sentence:
+        possible_tags = get_possible_tags(word)
+        col = []
+        for tag in possible_tags:
+            item = predict_next_best(word, tag, viterbi_matrix[-1])
+            col.append(item)
+
+        viterbi_matrix.append(col)
+
+    # End the sequence with a dummy: the highest-scoring item with the tag END.
+    log_prob = list(map(lambda x: x[-1], viterbi_matrix[-1]))
+    best_score_item_index = np.argmax(log_prob)
+    final_best_score_item = viterbi_matrix[-1][best_score_item_index]
+    end_item = (END, final_best_score_item, final_best_score_item[-1])
+    viterbi_matrix.append([end_item])
+
+    v_last = end_item
     return v_last
+
 
 #a suggestion for a helper function. Not an API requirement
 def retrace(end_item):
@@ -224,10 +253,22 @@ def retrace(end_item):
         list of words in the sentence (same indices).
     """
 
+
 #a suggestion for a helper function. Not an API requirement
 def predict_next_best(word, tag, predecessor_list):
     """Returns a new item (tupple)
     """
+    prev_best_item = None
+    log_prop_so_far = float('-inf')
+    # calculate best prev and log probability
+
+    for prev_item in predecessor_list:
+        temp_log_prob_so_far = prev_item[-1] + math.log(A[(prev_item[0], tag)] * B[(word, tag)])
+        if temp_log_prob_so_far > log_prop_so_far:
+            log_prop_so_far = temp_log_prob_so_far
+            prev_best_item = prev_item
+
+    return tag, prev_best_item, log_prop_so_far
 
 
 def joint_prob(sentence, A, B):
@@ -434,3 +475,17 @@ def count_correct(gold_sentence, pred_sentence):
     #TODO complete the code
     correct, correctOOV, OOV = "", "", ""
     return correct, correctOOV, OOV
+
+
+# added functions
+
+def get_possible_tags(word):
+    if word in perWordTagCounts:
+        tags_count = perWordTagCounts[word].most_common()
+        tags = list(map(lambda x: x[0], tags_count))
+    else:
+        tags = list(allTagCounts.keys())
+    return tags
+
+
+
