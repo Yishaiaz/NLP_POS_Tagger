@@ -14,6 +14,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchtext import data
+from torchtext.data import Field, get_tokenizer, TabularDataset, BucketIterator
 from torchtext.vocab import Vectors
 import torch.optim as optim
 from collections import Counter
@@ -23,7 +24,8 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+trainpath ='trainTestData/en-ud-train.upos.tsv'
+testpath = 'trainTestData/en-ud-dev.upos.tsv'
 
 # You can call use_seed with other seeds or None (for complete randomization)
 # but DO NOT change the default value.
@@ -396,9 +398,10 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn):
     #    the required API)
 
     #TODO complete the code
-
+    batch_size = 32
     criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    train_iter = preprocess_date_for_RNN(vectors, batch_size)
 
     model = model.to(device)
     criterion = criterion.to(device)
@@ -504,6 +507,7 @@ def get_possible_tags(word):
         tags = list(allTagCounts.keys())
     return tags
 
+
 def build_corpus_text_df(filename):
     train_tagged_sentences = load_annotated_corpus(filename)
     untagged_sentences = []
@@ -515,6 +519,24 @@ def build_corpus_text_df(filename):
 
     return pd.DataFrame({'text':untagged_sentences})
 
-# trainpath='trainTestData/en-ud-train.upos.tsv'
-# testpath = 'trainTestData/en-ud-dev.upos.tsv'
-# build_corpus_text_df(trainpath)
+
+def preprocess_date_for_RNN(vectors, batch_size):
+    df = build_corpus_text_df(trainpath)
+    df.to_csv('train_text_data.csv', index=False)
+    text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
+    fields = [('text', text_field)]
+    # TabularDataset
+
+    data = TabularDataset(path='train_text_data.csv', format='CSV', fields=fields, skip_header=True)
+
+    # Iterators
+
+    data_iter = BucketIterator(data, batch_size=batch_size, sort_key=lambda x: len(x.text),
+                               sort=True, sort_within_batch=True)
+
+    # Vocabulary
+    # text_field.vocab.load_vectors(vectors)
+    text_field.build_vocab(data, vectors=vectors)
+
+    return data_iter
+
