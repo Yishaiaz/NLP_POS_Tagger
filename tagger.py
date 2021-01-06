@@ -520,6 +520,7 @@ def build_corpus_text_df(filename):
             concat_sen += ' ' + word
             concat_tags += ' ' + tag
         temp_dict = {'text': concat_sen, 'tags': concat_tags}
+        # temp_dict = {'text': concat_sen}
         sentences_and_tags_dicts.append(temp_dict)
 
     return pd.DataFrame(sentences_and_tags_dicts)
@@ -530,20 +531,27 @@ def preprocess_date_for_RNN(vectors, batch_size):
     df.to_csv('train_text_data.csv', index=False)
 
     text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
-    tags_field = Field(sequential=False, use_vocab=False, batch_first=True)
+    tags_field = Field(batch_first=True)
+
 
     fields = [('text', text_field), ('tags', tags_field)]
     # TabularDataset
 
-    data = TabularDataset(path='train_text_data_old.csv', format='CSV', fields=fields, skip_header=True)
+    train_data = TabularDataset(path='train_text_data.csv', format='CSV', fields=fields, skip_header=True)
 
     # Iterators
 
-    data_iter = BucketIterator(data, batch_size=batch_size, sort_key=lambda x: len(x.text),
-                               sort=True, sort_within_batch=True)
+    # data_iter = BucketIterator(train_data, batch_size=batch_size, sort_key=lambda x: len(x.text),
+    #                            sort=True, sort_within_batch=True)
+
+
+    data_iter = BucketIterator(train_data, batch_size=batch_size)
 
     # Vocabulary
-    text_field.build_vocab(data, vectors=vectors)
+    text_field.build_vocab(train_data, vectors=vectors)
+    tags_field.build_vocab(train_data)
 
-    return data_iter
+    pad_index = text_field.vocab.stoi[text_field.pad_token]
+    tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]
+    return data_iter, pad_index, tag_pad_index
 

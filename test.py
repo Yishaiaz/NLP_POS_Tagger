@@ -28,8 +28,8 @@ def test_hmm_tag_sentence(A, B, sentence):
 def test_preprocess():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter = tagger.preprocess_date_for_RNN(vectors, batch_size)
-    for ((text, text_len)), _ in data_iter:
+    data_iter, pad_index, tag_pad_index = tagger.preprocess_date_for_RNN(vectors, batch_size)
+    for ((text, text_len), tags), _ in data_iter:
         print(text)
     print('Yay')
 
