@@ -511,13 +511,17 @@ def get_possible_tags(word):
 def build_corpus_text_df(filename):
     train_tagged_sentences = load_annotated_corpus(filename)
     untagged_sentences = []
+    tags_sentences = []
     for sentence in train_tagged_sentences:
         concat_sen = ''
+        concat_tags = ''
         for word, tag in sentence:
             concat_sen += ' ' + word
+            concat_tags += ' ' + tag
         untagged_sentences.append(concat_sen)
+        tags_sentences.append(concat_tags)
 
-    return pd.DataFrame({'text':untagged_sentences})
+    return pd.DataFrame({'text':untagged_sentences, 'tags': tags_sentences})
 
 
 def preprocess_date_for_RNN(vectors, batch_size):
