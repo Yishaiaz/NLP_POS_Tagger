@@ -527,11 +527,14 @@ def build_corpus_text_df(filename):
 def preprocess_date_for_RNN(vectors, batch_size):
     df = build_corpus_text_df(trainpath)
     df.to_csv('train_text_data.csv', index=False)
+
     text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
-    fields = [('text', text_field)]
+    tags_field = Field(sequential=False, use_vocab=False, batch_first=True)
+
+    fields = [('text', text_field), ('tags', tags_field)]
     # TabularDataset
 
-    data = TabularDataset(path='train_text_data.csv', format='CSV', fields=fields, skip_header=True)
+    data = TabularDataset(path='train_text_data_old.csv', format='CSV', fields=fields, skip_header=True)
 
     # Iterators
 
@@ -539,7 +542,6 @@ def preprocess_date_for_RNN(vectors, batch_size):
                                sort=True, sort_within_batch=True)
 
     # Vocabulary
-    # text_field.vocab.load_vectors(vectors)
     text_field.build_vocab(data, vectors=vectors)
 
     return data_iter
