@@ -10,6 +10,7 @@ to predict the part of speech sequence for a given sentence.
 import math
 from math import log, isfinite
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torchtext import data
@@ -503,5 +504,17 @@ def get_possible_tags(word):
         tags = list(allTagCounts.keys())
     return tags
 
+def build_corpus_text_df(filename):
+    train_tagged_sentences = load_annotated_corpus(filename)
+    untagged_sentences = []
+    for sentence in train_tagged_sentences:
+        concat_sen = ''
+        for word, tag in sentence:
+            concat_sen += ' ' + word
+        untagged_sentences.append(concat_sen)
 
+    return pd.DataFrame({'text':untagged_sentences})
 
+# trainpath='trainTestData/en-ud-train.upos.tsv'
+# testpath = 'trainTestData/en-ud-dev.upos.tsv'
+# build_corpus_text_df(trainpath)
