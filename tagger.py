@@ -6,14 +6,15 @@ to predict the part of speech sequence for a given sentence.
 (Adapted from Nathan Schneider)
 
 """
-import math
 
+import math
+from math import log, isfinite
 import numpy as np
 import torch
 import torch.nn as nn
 from torchtext import data
+from torchtext.vocab import Vectors
 import torch.optim as optim
-from math import log, isfinite
 from collections import Counter
 
 import sys, os, time, platform, nltk, random
@@ -374,9 +375,7 @@ def load_pretrained_embeddings(path):
         The format of the vectors object is not specified as it will be used
         internaly in your code, so you can use the datastructure of your choice.
     """
-    #TODO
-    vectors = []
-    return vectors
+    return Vectors(name=path, cache=os.getcwd())
 
 
 def train_rnn(model, data_fn, pretrained_embeddings_fn):
