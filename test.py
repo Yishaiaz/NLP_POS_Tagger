@@ -1,5 +1,8 @@
 import tagger
 
+train_path = 'trainTestData/en-ud-train.upos.tsv'
+test_path = 'trainTestData/en-ud-dev.upos.tsv'
+
 
 def test_read_training():
     return tagger.load_annotated_corpus('trainTestData/en-ud-train.upos.tsv')
@@ -28,7 +31,8 @@ def test_hmm_tag_sentence(A, B, sentence):
 def test_preprocess():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size,
+                                                                                                 train_path)
     for ((text, text_len), tags), _ in data_iter:
         print(text)
     print('Yay')
@@ -37,7 +41,8 @@ def test_preprocess():
 def test_init_model():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size,
+                                                                                                 train_path)
 
     # after preprocessing
     params_d = {'input_dimension': len(text_field.vocab),
@@ -46,10 +51,14 @@ def test_init_model():
                 'output_dimension': len(tags_field.vocab),
                 'num_of_layers': 2,
                 'dropout': 0.25,
-                'pad_idx': text_field.vocab.stoi[text_field.pad_token]}
+                'pad_idx': pad_index}
 
     model = tagger.initialize_rnn_model(params_d)
     print("Yay")
+
+
+def test_train_model():
+    tagger.train_model(train_path, 'glove.6B.100d.txt')
 
 
 def main():
@@ -59,7 +68,8 @@ def main():
     # # test_viterbi(A, B, sentence=" the small boy")
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
     # test_preprocess()
-    test_init_model()
+    # test_init_model()
+    test_train_model()
 
 
 if __name__ == '__main__':

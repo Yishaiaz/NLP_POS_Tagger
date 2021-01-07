@@ -24,8 +24,8 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-trainpath = 'trainTestData/en-ud-train.upos.tsv'
-testpath = 'trainTestData/en-ud-dev.upos.tsv'
+# trainpath = 'trainTestData/en-ud-train.upos.tsv'
+# testpath = 'trainTestData/en-ud-dev.upos.tsv'
 
 
 # You can call use_seed with other seeds or None (for complete randomization)
@@ -50,7 +50,6 @@ def who_am_i():  # this is not a class method
     """Returns a ductionary with your name, id number and email. keys=['name', 'id','email']
         Make sure you return your own info!
     """
-    # TODO edit the dictionary to have your own details
     # if work is submitted by a pair of students, add the following keys: name2, id2, email2
     return {'name1': 'Tamir Yaffe', 'id1': '305795239', 'email1': 'tamiry@post.bgu.ac.il',
             'name2': 'Yishaia Zabary', 'id2': '307963538', 'email2': 'yishaiaz@post.bgu.ac.il'}
@@ -111,7 +110,6 @@ def learn_params(tagged_sentences):
     Return:
     [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
-    # TODO complete the code
     num_of_sentences = len(tagged_sentences)
     all_possible_tags = []
 
@@ -155,7 +153,6 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         list: list of pairs
     """
 
-    # TODO complete the code
     tagged_sentence = []
     for word in sentence:
         if word in perWordTagCounts:
@@ -191,7 +188,6 @@ def hmm_tag_sentence(sentence, A, B):
         list: list of pairs
     """
 
-    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     tags = retrace(end_item)
     tagged_sentence = list(map(lambda x: (sentence[x], tags[x]), range(len(tags))))
@@ -303,7 +299,6 @@ def joint_prob(sentence, A, B):
      """
     p = 0  # joint log prob. of words and tags
 
-    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     p = end_item[-1]
     assert isfinite(p) and p < 0  # Should be negative. Think why!
@@ -350,8 +345,6 @@ def initialize_rnn_model(params_d):
         torch.nn.Module object
     """
 
-    # TODO complete the code
-
     model = BiLSTMPOSTagger(**params_d)
     return model
 
@@ -371,7 +364,6 @@ def get_model_params(model):
         output_dimension': int}
     """
 
-    # TODO complete the code
     params_d = model.params_d
     return params_d
 
@@ -532,11 +524,12 @@ def build_corpus_text_df(filename):
     return pd.DataFrame(sentences_and_tags_dicts)
 
 
-def preprocess_date_for_RNN(vectors, batch_size):
-    df = build_corpus_text_df(trainpath)
+def preprocess_date_for_RNN(vectors, batch_size, train_path):
+    df = build_corpus_text_df(train_path)
     df.to_csv('train_text_data.csv', index=False)
 
-    text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
+    # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
+    text_field = Field(lower=True, batch_first=True)
     tags_field = Field(batch_first=True)
 
     fields = [('text', text_field), ('tags', tags_field)]
@@ -583,6 +576,7 @@ class BiLSTMPOSTagger(nn.Module):
 
         self.lstm = nn.LSTM(embedding_dimension,
                             hidden_dim,
+                            batch_first=True,
                             num_layers=num_of_layers,
                             bidirectional=True,
                             dropout=dropout if num_of_layers > 1 else 0)
@@ -601,7 +595,7 @@ class BiLSTMPOSTagger(nn.Module):
         # embedded = [sent len, batch size, emb dim]
 
         # pass embeddings into LSTM
-        outputs, (hidden, cell) = self.lstm(embedded, batch_first=True)
+        outputs, (hidden, cell) = self.lstm(embedded)
 
         # outputs holds the backward and forward hidden states in the final layer
         # hidden and cell are the backward and forward hidden and cell states at the final time-step
@@ -616,3 +610,84 @@ class BiLSTMPOSTagger(nn.Module):
         # predictions = [sent len, batch size, output dim]
 
         return predictions
+
+
+def train_model(data_fn, pretrained_embeddings_fn):
+    batch_size = 32
+    epochs =10
+
+    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
+    vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_date_for_RNN(vectors, batch_size, data_fn)
+    params_d = {'input_dimension': len(text_field.vocab),
+                'embedding_dimension': 100,
+                'hidden_dim': 128,
+                'output_dimension': len(tags_field.vocab),
+                'num_of_layers': 2,
+                'dropout': 0.25,
+                'pad_idx': pad_index}
+    model = initialize_rnn_model(params_d)
+
+    # set the model embedding
+    pretrained_embeddings = text_field.vocab.vectors
+    model.embedding.weight.data.copy_(pretrained_embeddings)
+
+    # set optimizer
+    optimizer = optim.Adam(model.parameters())
+
+    # set criterion
+    criterion = nn.CrossEntropyLoss(ignore_index=tag_pad_index)
+
+    model = model.to(device)
+    criterion = criterion.to(device)
+
+    epoch_loss = 0
+    # epoch_acc = 0
+
+    model.train()
+    for e in range(epochs):
+        epoch_loss = 0
+
+        for batch in data_iter:
+            text = batch.text
+            tags = batch.tags
+
+            optimizer.zero_grad()
+
+            # text = [sent len, batch size]
+
+            predictions = model(text)
+
+            # predictions = [sent len, batch size, output dim]
+            # tags = [sent len, batch size]
+
+            predictions = predictions.view(-1, predictions.shape[-1])
+            tags = tags.view(-1)
+
+            # predictions = [sent len * batch size, output dim]
+            # tags = [sent len * batch size]
+
+            loss = criterion(predictions, tags)
+
+            # acc = categorical_accuracy(predictions, tags, tag_pad_index)
+
+            loss.backward()
+
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            # epoch_acc += acc.item()
+
+        print("Epoch: %s, loss: %s" % (e, epoch_loss / batch_size))
+        # print(epoch_loss / len(data_iter))
+        # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
+
+
+def categorical_accuracy(preds, y, tag_pad_idx):
+    """
+    Returns accuracy per batch, i.e. if you get 8/10 right, this returns 0.8, NOT 8
+    """
+    max_preds = preds.argmax(dim = 1, keepdim = True) # get the index of the max probability
+    non_pad_elements = (y != tag_pad_idx).nonzero()
+    correct = max_preds[non_pad_elements].squeeze(1).eq(y[non_pad_elements])
+    return correct.sum() / torch.FloatTensor([y[non_pad_elements].shape[0]])
