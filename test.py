@@ -28,10 +28,28 @@ def test_hmm_tag_sentence(A, B, sentence):
 def test_preprocess():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter, pad_index, tag_pad_index = tagger.preprocess_date_for_RNN(vectors, batch_size)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size)
     for ((text, text_len), tags), _ in data_iter:
         print(text)
     print('Yay')
+
+
+def test_init_model():
+    vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
+    batch_size = 32
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size)
+
+    # after preprocessing
+    params_d = {'input_dimension': len(text_field.vocab),
+                'embedding_dimension': 100,
+                'hidden_dim': 128,
+                'output_dimension': len(tags_field.vocab),
+                'num_of_layers': 2,
+                'dropout': 0.25,
+                'pad_idx': text_field.vocab.stoi[text_field.pad_token]}
+
+    model = tagger.initialize_rnn_model(params_d)
+    print("Yay")
 
 
 def main():
@@ -40,7 +58,8 @@ def main():
     # test_baseline_tag_sentence(perWordTagCounts, allTagCounts)
     # # test_viterbi(A, B, sentence=" the small boy")
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
-    test_preprocess()
+    # test_preprocess()
+    test_init_model()
 
 
 if __name__ == '__main__':

@@ -24,8 +24,9 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-trainpath ='trainTestData/en-ud-train.upos.tsv'
+trainpath = 'trainTestData/en-ud-train.upos.tsv'
 testpath = 'trainTestData/en-ud-dev.upos.tsv'
+
 
 # You can call use_seed with other seeds or None (for complete randomization)
 # but DO NOT change the default value.
@@ -39,6 +40,8 @@ random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.set_deterministic(True)
+
+
 # torch.backends.cudnn.deterministic = True
 
 
@@ -74,7 +77,6 @@ def load_annotated_corpus(filename):
             sentences.append(sentence)
             sentence = read_annotated_sentence(f)
     return sentences
-
 
 
 START = "<DUMMY_START_TAG>"
@@ -169,6 +171,7 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
 
     return tagged_sentence
 
+
 # ===========================================
 #       POS tagging with HMM
 # ===========================================
@@ -188,14 +191,14 @@ def hmm_tag_sentence(sentence, A, B):
         list: list of pairs
     """
 
-    #TODO complete the code
+    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     tags = retrace(end_item)
     tagged_sentence = list(map(lambda x: (sentence[x], tags[x]), range(len(tags))))
     return tagged_sentence
 
 
-def viterbi(sentence, A,B):
+def viterbi(sentence, A, B):
     """Creates the Viterbi matrix, column by column. Each column is a list of
     tuples representing cells. Each cell ("item") is a tupple (t,r,p), were
     t is the tag being scored at the current position,
@@ -214,14 +217,12 @@ def viterbi(sentence, A,B):
         obj: the last item, tagged with END. should allow backtraking.
 
         """
-        # Hint 1: For efficiency reasons - for words seen in training there is no
-        #      need to consider all tags in the tagset, but only tags seen with that
-        #      word. For OOV you have to consider all tags.
-        # Hint 2: start with a dummy item  with the START tag (what would it log-prob be?).
-        #         current list = [ the dummy item ]
-        # Hint 3: end the sequence with a dummy: the highest-scoring item with the tag END
-
-
+    # Hint 1: For efficiency reasons - for words seen in training there is no
+    #      need to consider all tags in the tagset, but only tags seen with that
+    #      word. For OOV you have to consider all tags.
+    # Hint 2: start with a dummy item  with the START tag (what would it log-prob be?).
+    #         current list = [ the dummy item ]
+    # Hint 3: end the sequence with a dummy: the highest-scoring item with the tag END
 
     # Start with a dummy item  with the START tag (what would it log-prob be?).
     # current list = [ the dummy item ]
@@ -253,7 +254,7 @@ def viterbi(sentence, A,B):
     return v_last
 
 
-#a suggestion for a helper function. Not an API requirement
+# a suggestion for a helper function. Not an API requirement
 def retrace(end_item):
     """Returns a list of tags (retracing the sequence with the highest probability,
         reversing it and returning the list). The list should correspond to the
@@ -272,7 +273,7 @@ def retrace(end_item):
     return tags[::-1]
 
 
-#a suggestion for a helper function. Not an API requirement
+# a suggestion for a helper function. Not an API requirement
 def predict_next_best(word, tag, predecessor_list, A, B):
     """Returns a new item (tupple)
     """
@@ -300,18 +301,18 @@ def joint_prob(sentence, A, B):
          A (dict): The HMM Transition probabilities
          B (dict): tthe HMM emmission probabilities.
      """
-    p = 0   # joint log prob. of words and tags
+    p = 0  # joint log prob. of words and tags
 
-    #TODO complete the code
+    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     p = end_item[-1]
-    assert isfinite(p) and p<0  # Should be negative. Think why!
+    assert isfinite(p) and p < 0  # Should be negative. Think why!
     return p
 
 
-#===========================================
+# ===========================================
 #       POS tagging with BiLSTM
-#===========================================
+# ===========================================
 
 """ You are required to support two types of bi-LSTM:
     1. a vanila biLSTM in which the input layer is based on simple word embeddings
@@ -319,6 +320,7 @@ def joint_prob(sentence, A, B):
         encoding case information, see
         https://arxiv.org/pdf/1510.06168.pdf
 """
+
 
 # Suggestions and tips, not part of the required API
 #
@@ -348,9 +350,11 @@ def initialize_rnn_model(params_d):
         torch.nn.Module object
     """
 
-    #TODO complete the code
-    model = []
+    # TODO complete the code
+
+    model = BiLSTMPOSTagger(**params_d)
     return model
+
 
 def get_model_params(model):
     """Returns a dictionary specifying the parameters of the specified model.
@@ -367,9 +371,10 @@ def get_model_params(model):
         output_dimension': int}
     """
 
-    #TODO complete the code
-    params_d = {}
+    # TODO complete the code
+    params_d = model.params_d
     return params_d
+
 
 def load_pretrained_embeddings(path):
     """ Returns an object with the the pretrained vectors, loaded from the
@@ -389,7 +394,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn):
         data_fn (string): full path to the file with training data (in the provided format)
         pretrained_embeddings_fn (string): full path to the file with pretrained embeddings
     """
-    #Tips:
+    # Tips:
     # 1. you have to specify an optimizer
     # 2. you have to specify the loss function and the stopping criteria
     # 3. consider loading the data and preprocessing it
@@ -397,9 +402,9 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn):
     # 5. some of the above could be implemented in helper functions (not part of
     #    the required API)
 
-    #TODO complete the code
+    # TODO complete the code
     batch_size = 32
-    criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
+    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
     train_iter = preprocess_date_for_RNN(vectors, batch_size)
 
@@ -420,9 +425,10 @@ def rnn_tag_sentence(sentence, model):
         list: list of pairs
     """
 
-    #TODO complete the code
+    # TODO complete the code
     tagged_sentence = ""
     return tagged_sentence
+
 
 def get_best_performing_model_params():
     """Returns a disctionary specifying the parameters of your best performing
@@ -431,14 +437,14 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    #TODO complete the code
+    # TODO complete the code
     model_params = {}
     return model_params
 
 
-#===========================================================
+# ===========================================================
 #       Wrapper function (tagging with a specified model)
-#===========================================================
+# ===========================================================
 
 def tag_sentence(sentence, model):
     """Returns a list of pairs (w,t) where pair corresponds to a word (same index) in
@@ -470,9 +476,9 @@ def tag_sentence(sentence, model):
     Return:
         list: list of pairs
     """
-    if model=='baseline':
+    if model == 'baseline':
         return baseline_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if model=='hmm':
+    if model == 'hmm':
         return hmm_tag_sentence(sentence, model.values()[0], model.values()[1])
     if model == 'blstm':
         return rnn_tag_sentence(sentence, model.values()[0])
@@ -490,14 +496,14 @@ def count_correct(gold_sentence, pred_sentence):
         pred_sentence (list): list of pairs, tags are predicted by tagger
 
     """
-    assert len(gold_sentence)==len(pred_sentence)
+    assert len(gold_sentence) == len(pred_sentence)
 
-    #TODO complete the code
+    # TODO complete the code
     correct, correctOOV, OOV = "", "", ""
     return correct, correctOOV, OOV
 
 
-# added functions
+#  *************************************** added functionality (not api) ***********************************************
 
 def get_possible_tags(word):
     if word in perWordTagCounts:
@@ -533,7 +539,6 @@ def preprocess_date_for_RNN(vectors, batch_size):
     text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
     tags_field = Field(batch_first=True)
 
-
     fields = [('text', text_field), ('tags', tags_field)]
     # TabularDataset
 
@@ -544,7 +549,6 @@ def preprocess_date_for_RNN(vectors, batch_size):
     # data_iter = BucketIterator(train_data, batch_size=batch_size, sort_key=lambda x: len(x.text),
     #                            sort=True, sort_within_batch=True)
 
-
     data_iter = BucketIterator(train_data, batch_size=batch_size)
 
     # Vocabulary
@@ -553,5 +557,62 @@ def preprocess_date_for_RNN(vectors, batch_size):
 
     pad_index = text_field.vocab.stoi[text_field.pad_token]
     tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]
-    return data_iter, pad_index, tag_pad_index
+    return data_iter, pad_index, tag_pad_index, text_field, tags_field
 
+
+class BiLSTMPOSTagger(nn.Module):
+    def __init__(self,
+                 input_dimension,
+                 embedding_dimension,
+                 hidden_dim,
+                 output_dimension,
+                 num_of_layers,
+                 dropout,
+                 pad_idx):
+        super().__init__()
+
+        self.params_d = {'input_dimension': input_dimension,
+                         'embedding_dimension': embedding_dimension,
+                         'hidden_dim': hidden_dim,
+                         'output_dimension': output_dimension,
+                         'num_of_layers': num_of_layers,
+                         'dropout': dropout,
+                         'pad_idx': pad_idx}
+
+        self.embedding = nn.Embedding(input_dimension, embedding_dimension, padding_idx=pad_idx)
+
+        self.lstm = nn.LSTM(embedding_dimension,
+                            hidden_dim,
+                            num_layers=num_of_layers,
+                            bidirectional=True,
+                            dropout=dropout if num_of_layers > 1 else 0)
+
+        self.fc = nn.Linear(hidden_dim * 2, output_dimension)
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, text):
+        # text = [sent len, batch size]
+
+        # pass text through embedding layer
+        embedded = self.embedding(text)
+        embedded = self.dropout(embedded)
+
+        # embedded = [sent len, batch size, emb dim]
+
+        # pass embeddings into LSTM
+        outputs, (hidden, cell) = self.lstm(embedded, batch_first=True)
+
+        # outputs holds the backward and forward hidden states in the final layer
+        # hidden and cell are the backward and forward hidden and cell states at the final time-step
+
+        # output = [sent len, batch size, hid dim * n directions]
+        # hidden/cell = [n layers * n directions, batch size, hid dim]
+
+        # we use our outputs to make a prediction of what the tag should be
+        outputs = self.dropout(outputs)
+        predictions = self.fc(outputs)
+
+        # predictions = [sent len, batch size, output dim]
+
+        return predictions
