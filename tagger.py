@@ -50,7 +50,6 @@ def who_am_i():  # this is not a class method
     """Returns a ductionary with your name, id number and email. keys=['name', 'id','email']
         Make sure you return your own info!
     """
-    # TODO edit the dictionary to have your own details
     # if work is submitted by a pair of students, add the following keys: name2, id2, email2
     return {'name1': 'Tamir Yaffe', 'id1': '305795239', 'email1': 'tamiry@post.bgu.ac.il',
             'name2': 'Yishaia Zabary', 'id2': '307963538', 'email2': 'yishaiaz@post.bgu.ac.il'}
@@ -111,7 +110,6 @@ def learn_params(tagged_sentences):
     Return:
     [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
-    # TODO complete the code
     num_of_sentences = len(tagged_sentences)
     all_possible_tags = []
 
@@ -155,7 +153,6 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         list: list of pairs
     """
 
-    # TODO complete the code
     tagged_sentence = []
     for word in sentence:
         if word in perWordTagCounts:
@@ -191,7 +188,6 @@ def hmm_tag_sentence(sentence, A, B):
         list: list of pairs
     """
 
-    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     tags = retrace(end_item)
     tagged_sentence = list(map(lambda x: (sentence[x], tags[x]), range(len(tags))))
@@ -303,7 +299,6 @@ def joint_prob(sentence, A, B):
      """
     p = 0  # joint log prob. of words and tags
 
-    # TODO complete the code
     end_item = viterbi(sentence, A, B)
     p = end_item[-1]
     assert isfinite(p) and p < 0  # Should be negative. Think why!
@@ -350,8 +345,6 @@ def initialize_rnn_model(params_d):
         torch.nn.Module object
     """
 
-    # TODO complete the code
-
     model = BiLSTMPOSTagger(**params_d)
     return model
 
@@ -371,7 +364,6 @@ def get_model_params(model):
         output_dimension': int}
     """
 
-    # TODO complete the code
     params_d = model.params_d
     return params_d
 
