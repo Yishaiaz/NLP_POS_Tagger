@@ -959,6 +959,7 @@ def train_cblstm_model(data_fn, pretrained_embeddings_fn):
 
 
 def evaluate_cblstm(data_fn):
+    features_size = 3
     tag_pad_index = 1
     model = torch.load('cblstm_model.pt')
 
@@ -989,11 +990,15 @@ def evaluate_cblstm(data_fn):
         tag = tag.type('torch.LongTensor')
 
         # reshape size
-        text = text.reshape(text.size()[0], 1)
-        features = features.reshape(features.size()[0], 1)
-        tag = tag.reshape(tag.size()[0], 1)
+        # text = text.reshape(1, text.size()[0])
+        # text_features_reshaped = features.reshape((1, text.shape[-1], features_size))
 
-        predictions = model(text, features)
+        text = text.reshape(text.size()[0], 1)
+        tag = tag.reshape(tag.size()[0], 1)
+        text_features_reshaped = features.reshape(text.shape[0], 1, features_size)
+
+
+        predictions = model(text, text_features_reshaped)
         predictions = predictions.view(-1, predictions.shape[-1])
         acc += categorical_accuracy(predictions, tag, tag_pad_index)
 
