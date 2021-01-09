@@ -704,6 +704,7 @@ def categorical_accuracy(preds, y, tag_pad_idx):
 
 
 def evaluate(data_fn):
+    tag_pad_index = 1
     model = torch.load('model.pt')
 
     model = model.to(device)
@@ -714,10 +715,16 @@ def evaluate(data_fn):
     sentences = list(map(lambda x: list(map(lambda k: word_to_index[k], x[0])), tags_sentences))
     tags = list(map(lambda x: list(map(lambda k: tag_to_index[k], x[1])), tags_sentences))
 
-
-
-
-
-
-
     model.eval()
+    acc = 0
+    for i in range(len(sentences)):
+        text = sentences[i]
+        tag = tags[i]
+
+        predictions = model(text)
+        predictions = predictions.view(-1, predictions.shape[-1])
+        acc += categorical_accuracy(predictions, tag, tag_pad_index)
+
+    total_acc = acc / len(sentences)
+
+
