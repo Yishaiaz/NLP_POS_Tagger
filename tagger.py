@@ -713,8 +713,8 @@ def evaluate(data_fn):
     tag_to_index = model.tag_to_index
 
     tags_sentences = load_annotated_corpus(data_fn)
-    sentences = list(map(lambda x: list(map(lambda k: word_to_index[k], x[0])), tags_sentences))
-    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k], x[1])), tags_sentences))
+    sentences = list(map(lambda x: list(map(lambda k: word_to_index[k[0]], x)), tags_sentences))
+    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k[1]], x)), tags_sentences))
 
     model.eval()
     acc = 0

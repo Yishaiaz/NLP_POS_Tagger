@@ -73,8 +73,8 @@ def main():
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
     # test_preprocess()
     # test_init_model()
-    test_train_model()
-    # test_evaluate_model()
+    # test_train_model()
+    test_evaluate_model()
 
 
 if __name__ == '__main__':
