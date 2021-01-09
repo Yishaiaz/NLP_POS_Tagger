@@ -764,7 +764,7 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
             sentence_bits = []
             for word in sentence[0].split():
                 sentence_bits = sentence_bits + word_to_binary(word)
-            all_cs_bits.append(''.join([str(x) for x in sentence_bits]))
+            all_cs_bits.append(' '.join([str(x) for x in sentence_bits]))
 
         cs_df = pd.Series(name='text_features', data=all_cs_bits)
         df['text_features'] = cs_df
@@ -779,7 +779,7 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
 
     # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
     text_field = Field(lower=True, batch_first=True)
-    text_features_field = Field(batch_first=True, use_vocab=False)
+    text_features_field = Field(batch_first=True)
     tags_field = Field(batch_first=True)
 
     fields = [('text', text_field), ('text_features', text_features_field), ('tags', tags_field)]
@@ -793,6 +793,7 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
     # Vocabulary
     text_field.build_vocab(train_data, vectors=vectors)
     tags_field.build_vocab(train_data)
+    text_features_field.build_vocab(train_data)
 
     pad_index = text_field.vocab.stoi[text_field.pad_token]
     tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]

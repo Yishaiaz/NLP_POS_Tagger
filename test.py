@@ -71,6 +71,7 @@ def test_preprocess_cslstm():
     data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_data_for_cblstm(vectors, batch_size,
                                                                                                     train_path)
     for (text, text_features, tags), _ in data_iter:
+        text_features = text_features - 2
         print(text)
     print('Yay')
 
