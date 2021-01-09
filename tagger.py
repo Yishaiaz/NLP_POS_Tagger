@@ -345,8 +345,10 @@ def initialize_rnn_model(params_d):
     Return:
         torch.nn.Module object
     """
-
-    model = BiLSTMPOSTagger(**params_d)
+    if not params_d['cblstm']:
+        model = BiLSTMPOSTagger(**params_d)
+    else:
+        model = CBiLSTMPOSTagger(**params_d)
     return model
 
 
@@ -564,7 +566,8 @@ class BiLSTMPOSTagger(nn.Module):
                  dropout,
                  pad_idx,
                  word_to_index,
-                 tag_to_index):
+                 tag_to_index,
+                 cblstm):
         super().__init__()
 
         self.params_d = {'input_dimension': input_dimension,
@@ -575,7 +578,8 @@ class BiLSTMPOSTagger(nn.Module):
                          'dropout': dropout,
                          'pad_idx': pad_idx,
                          'word_to_index': word_to_index,
-                         'tag_to_index': tag_to_index}
+                         'tag_to_index': tag_to_index,
+                         'cblstm': cblstm}
 
         self.word_to_index = word_to_index
         self.tag_to_index = tag_to_index
@@ -619,7 +623,7 @@ class BiLSTMPOSTagger(nn.Module):
         return predictions
 
 
-def train_model(data_fn, pretrained_embeddings_fn):
+def train_RNN_model(data_fn, pretrained_embeddings_fn):
     batch_size = 32
     epochs =10
 
@@ -634,7 +638,8 @@ def train_model(data_fn, pretrained_embeddings_fn):
                 'dropout': 0.25,
                 'pad_idx': pad_index,
                 'word_to_index': text_field.vocab,
-                'tag_to_index': tags_field.vocab}
+                'tag_to_index': tags_field.vocab,
+                'cblstm': False}
     model = initialize_rnn_model(params_d)
 
     # set the model embedding
@@ -741,7 +746,7 @@ def evaluate(data_fn):
     total_acc = acc / len(sentences)
     print(total_acc)
 
-# CB LSTM ADDED FUNCTIONS
+#  *********************************** CB LSTM added functionality (not api) *******************************************
 
 
 def preprocess_data_for_cblstm(vectors, batch_size, train_path):
@@ -798,3 +803,154 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
     pad_index = text_field.vocab.stoi[text_field.pad_token]
     tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]
     return data_iter, pad_index, tag_pad_index, text_field, tags_field
+
+
+class CBiLSTMPOSTagger(nn.Module):
+    def __init__(self,
+                 input_dimension,
+                 embedding_dimension,
+                 hidden_dim,
+                 output_dimension,
+                 num_of_layers,
+                 dropout,
+                 pad_idx,
+                 word_to_index,
+                 tag_to_index,
+                 cblstm):
+        super().__init__()
+
+        self.params_d = {'input_dimension': input_dimension,
+                         'embedding_dimension': embedding_dimension,
+                         'hidden_dim': hidden_dim,
+                         'output_dimension': output_dimension,
+                         'num_of_layers': num_of_layers,
+                         'dropout': dropout,
+                         'pad_idx': pad_idx,
+                         'word_to_index': word_to_index,
+                         'tag_to_index': tag_to_index,
+                         'cblstm': cblstm}
+
+        self.word_to_index = word_to_index
+        self.tag_to_index = tag_to_index
+        self.embedding = nn.Embedding(input_dimension, embedding_dimension, padding_idx=pad_idx)
+
+        self.lstm = nn.LSTM(embedding_dimension + 3,
+                            hidden_dim,
+                            batch_first=True,
+                            num_layers=num_of_layers,
+                            bidirectional=True,
+                            dropout=dropout if num_of_layers > 1 else 0)
+
+        self.fc = nn.Linear(hidden_dim * 2, output_dimension)
+
+        self.dropout = nn.Dropout(dropout)
+
+
+    def forward(self, text, text_features):
+        # text_features [batch_size, sent len, features len]
+
+        # pass text through embedding layer
+        embedded = self.embedding(text)
+        embedded = self.dropout(embedded)
+
+        # embedded [batch_size, sent len, embedded len]
+
+        concat = torch.cat((embedded, text_features), 2)
+
+        # pass embeddings into LSTM
+        outputs, (hidden, cell) = self.lstm(concat)
+
+        # outputs holds the backward and forward hidden states in the final layer
+        # hidden and cell are the backward and forward hidden and cell states at the final time-step
+
+        # output = [sent len, batch size, hid dim * n directions]
+        # hidden/cell = [n layers * n directions, batch size, hid dim]
+
+        # we use our outputs to make a prediction of what the tag should be
+        outputs = self.dropout(outputs)
+        predictions = self.fc(outputs)
+
+        # predictions = [sent len, batch size, output dim]
+
+        return predictions
+
+
+def train_cblstm_model(data_fn, pretrained_embeddings_fn):
+    features_size = 3
+    batch_size = 32
+    epochs =10
+
+    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
+    vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size, data_fn)
+    params_d = {'input_dimension': len(text_field.vocab),
+                'embedding_dimension': 100,
+                'hidden_dim': 128,
+                'output_dimension': len(tags_field.vocab),
+                'num_of_layers': 2,
+                'dropout': 0.25,
+                'pad_idx': pad_index,
+                'word_to_index': text_field.vocab,
+                'tag_to_index': tags_field.vocab,
+                'cblstm': True}
+
+    model = initialize_rnn_model(params_d)
+
+    # set the model embedding
+    pretrained_embeddings = text_field.vocab.vectors
+    model.embedding.weight.data.copy_(pretrained_embeddings)
+
+    # set optimizer
+    optimizer = optim.Adam(model.parameters())
+
+    # set criterion
+    criterion = nn.CrossEntropyLoss(ignore_index=tag_pad_index)
+
+    model = model.to(device)
+    criterion = criterion.to(device)
+
+    epoch_loss = 0
+    epoch_acc = 0
+
+    model.train()
+    for e in range(epochs):
+        epoch_loss = 0
+        epoch_acc = 0
+
+        for batch in data_iter:
+            text = batch.text
+            text_features = batch.text_features - 2
+            text_features_reshaped = text_features.reshape((batch_size, text.shape[-1], features_size))
+            tags = batch.tags
+
+            optimizer.zero_grad()
+
+            # text = [sent len, batch size]
+
+            predictions = model(text, text_features_reshaped)
+
+            # predictions = [sent len, batch size, output dim]
+            # tags = [sent len, batch size]
+
+            predictions = predictions.view(-1, predictions.shape[-1])
+            tags = tags.view(-1)
+
+            # predictions = [sent len * batch size, output dim]
+            # tags = [sent len * batch size]
+
+            loss = criterion(predictions, tags)
+
+            acc = categorical_accuracy(predictions, tags, tag_pad_index)
+
+            loss.backward()
+
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            epoch_acc += acc.item()
+
+        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
+        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
+        # print(epoch_loss / len(data_iter))
+        # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
+        torch.save(model, 'model.pt')
