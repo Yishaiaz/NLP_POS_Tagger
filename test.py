@@ -62,7 +62,7 @@ def test_train_model():
 
 
 def test_evaluate_model():
-    tagger.evaluate(test_path, 'glove.6B.100d.txt')
+    tagger.evaluate(test_path)
 
 
 def main():
