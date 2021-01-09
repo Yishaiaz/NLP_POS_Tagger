@@ -722,10 +722,22 @@ def evaluate(data_fn):
         text = sentences[i]
         tag = tags[i]
 
+        # input transformations
+        text = torch.from_numpy(np.array(text))
+        tag = torch.from_numpy(np.array(tag))
+        # cast to tensor int
+        text = text.type('torch.LongTensor')
+        tag = tag.type('torch.LongTensor')
+
+        # reshape size
+        text = text.reshape(text.size()[0], 1)
+        tag = tag.reshape(tag.size()[0], 1)
+
         predictions = model(text)
         predictions = predictions.view(-1, predictions.shape[-1])
         acc += categorical_accuracy(predictions, tag, tag_pad_index)
 
     total_acc = acc / len(sentences)
+    print(total_acc)
 
 
