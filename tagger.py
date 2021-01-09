@@ -691,6 +691,7 @@ def train_model(data_fn, pretrained_embeddings_fn):
         print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
         # print(epoch_loss / len(data_iter))
         # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
+        torch.save(model, 'model.pt')
 
 
 def categorical_accuracy(preds, y, tag_pad_idx):
