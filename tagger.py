@@ -561,7 +561,9 @@ class BiLSTMPOSTagger(nn.Module):
                  output_dimension,
                  num_of_layers,
                  dropout,
-                 pad_idx):
+                 pad_idx,
+                 word_to_index,
+                 tag_to_index):
         super().__init__()
 
         self.params_d = {'input_dimension': input_dimension,
@@ -570,8 +572,12 @@ class BiLSTMPOSTagger(nn.Module):
                          'output_dimension': output_dimension,
                          'num_of_layers': num_of_layers,
                          'dropout': dropout,
-                         'pad_idx': pad_idx}
+                         'pad_idx': pad_idx,
+                         'word_to_index': word_to_index,
+                         'tag_to_index': tag_to_index}
 
+        self.word_to_index = word_to_index
+        self.tag_to_index = tag_to_index
         self.embedding = nn.Embedding(input_dimension, embedding_dimension, padding_idx=pad_idx)
 
         self.lstm = nn.LSTM(embedding_dimension,
@@ -625,7 +631,9 @@ def train_model(data_fn, pretrained_embeddings_fn):
                 'output_dimension': len(tags_field.vocab),
                 'num_of_layers': 2,
                 'dropout': 0.25,
-                'pad_idx': pad_index}
+                'pad_idx': pad_index,
+                'word_to_index': text_field.vocab,
+                'tag_to_index': tags_field.vocab}
     model = initialize_rnn_model(params_d)
 
     # set the model embedding
@@ -642,11 +650,12 @@ def train_model(data_fn, pretrained_embeddings_fn):
     criterion = criterion.to(device)
 
     epoch_loss = 0
-    # epoch_acc = 0
+    epoch_acc = 0
 
     model.train()
     for e in range(epochs):
         epoch_loss = 0
+        epoch_acc = 0
 
         for batch in data_iter:
             text = batch.text
@@ -669,16 +678,17 @@ def train_model(data_fn, pretrained_embeddings_fn):
 
             loss = criterion(predictions, tags)
 
-            # acc = categorical_accuracy(predictions, tags, tag_pad_index)
+            acc = categorical_accuracy(predictions, tags, tag_pad_index)
 
             loss.backward()
 
             optimizer.step()
 
             epoch_loss += loss.item()
-            # epoch_acc += acc.item()
+            epoch_acc += acc.item()
 
-        print("Epoch: %s, loss: %s" % (e, epoch_loss / batch_size))
+        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
+        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
         # print(epoch_loss / len(data_iter))
         # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
 
@@ -691,3 +701,23 @@ def categorical_accuracy(preds, y, tag_pad_idx):
     non_pad_elements = (y != tag_pad_idx).nonzero()
     correct = max_preds[non_pad_elements].squeeze(1).eq(y[non_pad_elements])
     return correct.sum() / torch.FloatTensor([y[non_pad_elements].shape[0]])
+
+
+def evaluate(data_fn):
+    model = torch.load('model.pt')
+
+    model = model.to(device)
+    word_to_index = model.word_to_index
+    tag_to_index = model.tag_to_index
+
+    tags_sentences = load_annotated_corpus(data_fn)
+    sentences = list(map(lambda x: list(map(lambda k: word_to_index[k], x[0])), tags_sentences))
+    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k], x[1])), tags_sentences))
+
+
+
+
+
+
+
+    model.eval()

@@ -61,6 +61,10 @@ def test_train_model():
     tagger.train_model(train_path, 'glove.6B.100d.txt')
 
 
+def test_evaluate_model():
+    tagger.evaluate(test_path, 'glove.6B.100d.txt')
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -70,6 +74,7 @@ def main():
     # test_preprocess()
     # test_init_model()
     test_train_model()
+    # test_evaluate_model()
 
 
 if __name__ == '__main__':
