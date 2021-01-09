@@ -31,7 +31,7 @@ def test_hmm_tag_sentence(A, B, sentence):
 def test_preprocess():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size,
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_data_for_RNN(vectors, batch_size,
                                                                                                  train_path)
     for ((text, text_len), tags), _ in data_iter:
         print(text)
@@ -41,7 +41,7 @@ def test_preprocess():
 def test_init_model():
     vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
     batch_size = 32
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_date_for_RNN(vectors, batch_size,
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_data_for_RNN(vectors, batch_size,
                                                                                                  train_path)
 
     # after preprocessing
@@ -65,6 +65,15 @@ def test_evaluate_model():
     tagger.evaluate(test_path)
 
 
+def test_preprocess_cslstm():
+    vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
+    batch_size = 32
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_data_for_cblstm(vectors, batch_size,
+                                                                                                    train_path)
+    for (text, text_features, tags), _ in data_iter:
+        print(text)
+    print('Yay')
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -74,7 +83,8 @@ def main():
     # test_preprocess()
     # test_init_model()
     # test_train_model()
-    test_evaluate_model()
+    # test_evaluate_model()
+    test_preprocess_cslstm()
 
 
 if __name__ == '__main__':

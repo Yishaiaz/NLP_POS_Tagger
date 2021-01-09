@@ -8,6 +8,7 @@ to predict the part of speech sequence for a given sentence.
 """
 
 import math
+import string
 from math import log, isfinite
 import numpy as np
 import pandas as pd
@@ -398,7 +399,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn):
     batch_size = 32
     criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    train_iter = preprocess_date_for_RNN(vectors, batch_size)
+    train_iter = preprocess_data_for_RNN(vectors, batch_size)
 
     model = model.to(device)
     criterion = criterion.to(device)
@@ -524,7 +525,7 @@ def build_corpus_text_df(filename):
     return pd.DataFrame(sentences_and_tags_dicts)
 
 
-def preprocess_date_for_RNN(vectors, batch_size, train_path):
+def preprocess_data_for_RNN(vectors, batch_size, train_path):
     df = build_corpus_text_df(train_path)
     df.to_csv('train_text_data.csv', index=False)
 
@@ -624,7 +625,7 @@ def train_model(data_fn, pretrained_embeddings_fn):
 
     criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_date_for_RNN(vectors, batch_size, data_fn)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size, data_fn)
     params_d = {'input_dimension': len(text_field.vocab),
                 'embedding_dimension': 100,
                 'hidden_dim': 128,
@@ -740,4 +741,59 @@ def evaluate(data_fn):
     total_acc = acc / len(sentences)
     print(total_acc)
 
+# CB LSTM ADDED FUNCTIONS
 
+
+def preprocess_data_for_cblstm(vectors, batch_size, train_path):
+    def word_to_binary(word: str):
+        bits = [0 for x in range(3)]
+        if word in string.punctuation:
+            return bits
+        if word.isupper():
+            bits[0] = 1
+        elif word.capitalize() == word:
+            bits[1] = 1
+        elif word.islower():
+            bits[2] = 1
+        return bits
+
+    def transform_to_cs_df(df: pd.DataFrame):
+        all_sentences = df.loc[:, ['text']]
+        all_cs_bits = list()
+        for sentence_idx, sentence in enumerate(all_sentences.values):
+            sentence_bits = []
+            for word in sentence[0].split():
+                sentence_bits = sentence_bits + word_to_binary(word)
+            all_cs_bits.append(''.join([str(x) for x in sentence_bits]))
+
+        cs_df = pd.Series(name='text_features', data=all_cs_bits)
+        df['text_features'] = cs_df
+        df = df[['text', 'text_features', 'tags']]
+        return df
+
+
+    df = build_corpus_text_df(train_path)
+    df = transform_to_cs_df(df)
+
+    df.to_csv('train_text_data.csv', index=False)
+
+    # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
+    text_field = Field(lower=True, batch_first=True)
+    text_features_field = Field(batch_first=True, use_vocab=False)
+    tags_field = Field(batch_first=True)
+
+    fields = [('text', text_field), ('text_features', text_features_field), ('tags', tags_field)]
+    # TabularDataset
+
+    train_data = TabularDataset(path='train_text_data.csv', format='CSV', fields=fields, skip_header=True)
+
+    # Iterators
+    data_iter = BucketIterator(train_data, batch_size=batch_size)
+
+    # Vocabulary
+    text_field.build_vocab(train_data, vectors=vectors)
+    tags_field.build_vocab(train_data)
+
+    pad_index = text_field.vocab.stoi[text_field.pad_token]
+    tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]
+    return data_iter, pad_index, tag_pad_index, text_field, tags_field
