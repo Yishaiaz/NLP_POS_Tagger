@@ -9,6 +9,7 @@ to predict the part of speech sequence for a given sentence.
 
 import math
 import string
+from functools import reduce
 from math import log, isfinite
 import numpy as np
 import pandas as pd
@@ -748,19 +749,20 @@ def evaluate(data_fn):
 
 #  *********************************** CB LSTM added functionality (not api) *******************************************
 
+def word_to_binary(word: str):
+    bits = [0 for x in range(3)]
+    if word in string.punctuation:
+        return bits
+    if word.isupper():
+        bits[0] = 1
+    elif word.capitalize() == word:
+        bits[1] = 1
+    elif word.islower():
+        bits[2] = 1
+    return bits
+
 
 def preprocess_data_for_cblstm(vectors, batch_size, train_path):
-    def word_to_binary(word: str):
-        bits = [0 for x in range(3)]
-        if word in string.punctuation:
-            return bits
-        if word.isupper():
-            bits[0] = 1
-        elif word.capitalize() == word:
-            bits[1] = 1
-        elif word.islower():
-            bits[2] = 1
-        return bits
 
     def transform_to_cs_df(df: pd.DataFrame):
         all_sentences = df.loc[:, ['text']]
@@ -920,7 +922,7 @@ def train_cblstm_model(data_fn, pretrained_embeddings_fn):
         for batch in data_iter:
             text = batch.text
             text_features = batch.text_features - 2
-            text_features_reshaped = text_features.reshape((batch_size, text.shape[-1], features_size))
+            text_features_reshaped = text_features.reshape((len(batch), text.shape[-1], features_size))
             tags = batch.tags
 
             optimizer.zero_grad()
@@ -953,4 +955,48 @@ def train_cblstm_model(data_fn, pretrained_embeddings_fn):
         print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
         # print(epoch_loss / len(data_iter))
         # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
-        torch.save(model, 'model.pt')
+        torch.save(model, 'cblstm_model.pt')
+
+
+def evaluate_cblstm(data_fn):
+    tag_pad_index = 1
+    model = torch.load('cblstm_model.pt')
+
+    model = model.to(device)
+    word_to_index = model.word_to_index
+    tag_to_index = model.tag_to_index
+
+    tags_sentences = load_annotated_corpus(data_fn)
+    text_sentences = list(map(lambda x: list(map(lambda k: k[0], x)), tags_sentences))
+    features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), text_sentences))
+    text_sentences = list(map(lambda x: list(map(lambda k: word_to_index[k], x)), text_sentences))
+    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k[1]], x)), tags_sentences))
+
+    model.eval()
+    acc = 0
+    for i in range(len(text_sentences)):
+        text = text_sentences[i]
+        features = features_sentences[i]
+        tag = tags[i]
+
+        # input transformations
+        text = torch.from_numpy(np.array(text))
+        features = torch.from_numpy(np.array(features))
+        tag = torch.from_numpy(np.array(tag))
+        # cast to tensor int
+        text = text.type('torch.LongTensor')
+        features = features.type('torch.LongTensor')
+        tag = tag.type('torch.LongTensor')
+
+        # reshape size
+        text = text.reshape(text.size()[0], 1)
+        features = features.reshape(features.size()[0], 1)
+        tag = tag.reshape(tag.size()[0], 1)
+
+        predictions = model(text, features)
+        predictions = predictions.view(-1, predictions.shape[-1])
+        acc += categorical_accuracy(predictions, tag, tag_pad_index)
+
+    total_acc = acc / len(text_sentences)
+    print(total_acc)
+

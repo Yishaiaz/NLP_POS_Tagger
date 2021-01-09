@@ -80,6 +80,10 @@ def test_train_cblstm_model():
     tagger.train_cblstm_model(train_path, 'glove.6B.100d.txt')
 
 
+def test_evaluate_cblstm_model():
+    tagger.evaluate_cblstm(test_path)
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -91,8 +95,8 @@ def main():
     # test_train_RNN_model()
     # test_evaluate_model()
     # test_preprocess_cslstm()
-    test_train_cblstm_model()
-
+    # test_train_cblstm_model()
+    test_evaluate_cblstm_model()
 
 if __name__ == '__main__':
     main()
