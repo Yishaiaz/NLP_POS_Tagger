@@ -57,8 +57,8 @@ def test_init_model():
     print("Yay")
 
 
-def test_train_model():
-    tagger.train_model(train_path, 'glove.6B.100d.txt')
+def test_train_RNN_model():
+    tagger.train_RNN_model(train_path, 'glove.6B.100d.txt')
 
 
 def test_evaluate_model():
@@ -75,6 +75,11 @@ def test_preprocess_cslstm():
         print(text)
     print('Yay')
 
+
+def test_train_cblstm_model():
+    tagger.train_cblstm_model(train_path, 'glove.6B.100d.txt')
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -83,9 +88,10 @@ def main():
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
     # test_preprocess()
     # test_init_model()
-    # test_train_model()
+    # test_train_RNN_model()
     # test_evaluate_model()
-    test_preprocess_cslstm()
+    # test_preprocess_cslstm()
+    test_train_cblstm_model()
 
 
 if __name__ == '__main__':
