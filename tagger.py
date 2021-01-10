@@ -32,6 +32,17 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # You can call use_seed with other seeds or None (for complete randomization)
 # but DO NOT change the default value.
+
+
+# The expected pipeline for the RNN model:
+# Initializing model with all that is needed, including dimensions, training data and pretrained embeddings.
+# It is assumed that preprocessing functions will be called from this function. This stage returns an dictionary
+# object model_d.
+# Training the RNN model: this is done given the output of the initialization model_d and a list of annotated sentences.
+# Use the trained model (again, using model_d ) to tag new sentence (the sentence is given as a list of words).
+# This is done via the tag_sentence(sentence, model) function.
+# Evaluation with count_correct() can be called. Note that this is a general function.
+
 def use_seed(seed=1512021):
     random.seed(seed)
     return seed
@@ -331,20 +342,28 @@ def joint_prob(sentence, A, B):
 #  6. Consider using different unit types (LSTM, GRU,LeRU)
 
 def initialize_rnn_model(params_d):
-    """Returns an lstm model based on the specified parameters.
+    """Returns a dictionary with the objects and parameters needed to run/train_rnn
+       the lstm model. The LSTM is initialized based on the specified parameters.
+       thr returned dict is may have other or additional fields.
 
     Args:
-        params_d (dict): an dictionary of parameters specifying the model. The dict
+        params_d (dict): a dictionary of parameters specifying the model. The dict
                         should include (at least) the following keys:
-                        {'input_dimension': int,
-                        'embedding_dimension': int,
-                        'num_of_layers': int,
-                        'output_dimension': int}
+                        {'input_dimension': vocabulary size (int),
+                        'embedding_dimension': embedding vectors size (int),
+                        'num_of_layers': number of layers (int),
+                        'output_dimension': number of tags in tagset (int),
+                        'pretrained_embeddings_fn': str,
+                        'data_fn': str
+                        }
                         The dictionary can include other keys, if you use them,
                              BUT you shouldn't assume they will be specified by
                              the user, so you should spacify default values.
     Return:
-        torch.nn.Module object
+        a dictionary with the at least the following key-value pairs:
+                                       {'lstm': torch.nn.Module object}
+        #Hint: you may consider adding the embeddings and the vocabulary
+        #to the returned dict
     """
     if not params_d['cblstm']:
         model = BiLSTMPOSTagger(**params_d)
@@ -372,36 +391,49 @@ def get_model_params(model):
     return params_d
 
 
-def load_pretrained_embeddings(path):
+def load_pretrained_embeddings(path, vocab=None):
     """ Returns an object with the the pretrained vectors, loaded from the
         file at the specified path. The file format is the same as
         https://www.kaggle.com/danielwillgeorge/glove6b100dtxt
+        You can also access the vectors at:
+         https://www.dropbox.com/s/qxak38ybjom696y/glove.6B.100d.txt?dl=0
+         (for efficiency (time and memory) - load only the vectors you need)
         The format of the vectors object is not specified as it will be used
         internaly in your code, so you can use the datastructure of your choice.
+
+    Args:
+        path (str): full path to the embeddings file
+        vocab (list): a list of words to have embeddings for. Defaults to None.
+
     """
     return Vectors(name=path, cache=os.getcwd())
 
 
-def train_rnn(model, data_fn, pretrained_embeddings_fn):
+def train_rnn(model, train_data, val_data = None, input_rep = 0):
     """Trains the BiLSTM model on the specified data.
 
     Args:
-        model (torch.nn.Module): the model to train
-        data_fn (string): full path to the file with training data (in the provided format)
-        pretrained_embeddings_fn (string): full path to the file with pretrained embeddings
+        model (dict): the model dict as returned by initialize_rnn_model()
+        train_data (list): a list of annotated sentences in the format returned
+                            by load_annotated_corpus()
+        val_data (list): a list of annotated sentences in the format returned
+                            by load_annotated_corpus() to be used for validation.
+                            Defaults to None
+        input_rep (int): sets the input representation. Defaults to 0 (vanilla),
+                         1: case-base; <other int>: other models, if you are playful
     """
-    # Tips:
+    #Tips:
     # 1. you have to specify an optimizer
     # 2. you have to specify the loss function and the stopping criteria
-    # 3. consider loading the data and preprocessing it
-    # 4. consider using batching
-    # 5. some of the above could be implemented in helper functions (not part of
+    # 3. consider using batching
+    # 4. some of the above could be implemented in helper functions (not part of
     #    the required API)
 
-    # TODO complete the code
+    #TODO complete the code
     batch_size = 32
     criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
-    vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    vectors = []
     train_iter = preprocess_data_for_RNN(vectors, batch_size)
 
     model = model.to(device)
@@ -449,14 +481,14 @@ def tag_sentence(sentence, model):
     Args:
         sentence (list): a list of tokens (the sentence to tag)
         model (dict): a dictionary where key is the model name and the value is
-        an ordered list of the parameters of the trained model (baseline, HMM)
-        or the model itself (LSTMs).
+           an ordered list of the parameters of the trained model (baseline, HMM)
+           or the model isteld and the input_rep flag (LSTMs).
 
         Models that must be supported (you can add more):
         1. baseline: {'baseline': [perWordTagCounts, allTagCounts]}
         2. HMM: {'hmm': [A,B]}
-        3. Vanilla BiLSTM: {'blstm':[Torch.nn.Module]}
-        4. BiLSTM+case: {'cblstm': [Torch.nn.Module]}
+        3. Vanilla BiLSTM: {'blstm':[model_dict]}
+        4. BiLSTM+case: {'cblstm': [model_dict]}
         5. (NOT REQUIRED: you can add other variations, agumenting the input
             with further subword information, with character-level word embedding etc.)
 
@@ -464,21 +496,23 @@ def tag_sentence(sentence, model):
         perWordTagCounts (Counter): tags per word as specified in learn_params()
         allTagCounts (Counter): tag counts, as specified in learn_params()
 
-        The parameters for the LSTM are:
+        The parameters for the HMM are:
         A (dict): The HMM Transition probabilities
         B (dict): tthe HMM emmission probabilities.
+
+        Parameters for an LSTM: the model dictionary (allows tagging the given sentence)
 
 
     Return:
         list: list of pairs
     """
-    if model == 'baseline':
+    if list(model.keys())[0]=='baseline':
         return baseline_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if model == 'hmm':
+    if list(model.keys())[0]=='hmm':
         return hmm_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if model == 'blstm':
+    if list(model.keys())[0] == 'blstm':
         return rnn_tag_sentence(sentence, model.values()[0])
-    if model == 'cblstm':
+    if list(model.keys())[0] == 'cblstm':
         return rnn_tag_sentence(sentence, model.values()[0])
 
 
