@@ -720,11 +720,26 @@ def evaluate(data_fn):
     tag_to_index = model.tag_to_index
 
     tags_sentences = load_annotated_corpus(data_fn)
-    sentences = list(map(lambda x: list(map(lambda k: word_to_index[k[0]], x)), tags_sentences))
-    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k[1]], x)), tags_sentences))
+    sentences = []
+    tags = []
+
+    for i in range(len(tags_sentences)):
+        taged_sentence = tags_sentences[i]
+        sentence = []
+        sentence_tags = []
+        for i in range(len(taged_sentence)):
+            taged_pair = taged_sentence[i]
+            text = taged_pair[0].lower()
+            tag = taged_pair[1]
+            text_idx = word_to_index[text]
+            tag_index = tag_to_index[tag]
+            sentence.append(text_idx)
+            sentence_tags.append(tag_index)
+        sentences.append(sentence)
+        tags.append(sentence_tags)
 
     model.eval()
-    acc = 0
+    total_acc = 0
     for i in range(len(sentences)):
         text = sentences[i]
         tag = tags[i]
@@ -732,20 +747,22 @@ def evaluate(data_fn):
         # input transformations
         text = torch.from_numpy(np.array(text))
         tag = torch.from_numpy(np.array(tag))
+
         # cast to tensor int
         text = text.type('torch.LongTensor')
         tag = tag.type('torch.LongTensor')
 
         # reshape size
-        text = text.reshape(text.size()[0], 1)
-        tag = tag.reshape(tag.size()[0], 1)
+        text = text.reshape(1, text.size()[0])
+        tag = tag.view(-1)
 
         predictions = model(text)
         predictions = predictions.view(-1, predictions.shape[-1])
-        acc += categorical_accuracy(predictions, tag, tag_pad_index)
+        acc = categorical_accuracy(predictions, tag, tag_pad_index)
 
-    total_acc = acc / len(sentences)
-    print(total_acc)
+        total_acc += acc.item()
+
+    print(total_acc / len(sentences))
 
 #  *********************************** CB LSTM added functionality (not api) *******************************************
 
@@ -970,13 +987,29 @@ def evaluate_cblstm(data_fn):
     tags_sentences = load_annotated_corpus(data_fn)
     text_sentences = list(map(lambda x: list(map(lambda k: k[0], x)), tags_sentences))
     features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), text_sentences))
-    text_sentences = list(map(lambda x: list(map(lambda k: word_to_index[k], x)), text_sentences))
-    tags = list(map(lambda x: list(map(lambda k: tag_to_index[k[1]], x)), tags_sentences))
+
+    sentences = []
+    tags = []
+
+    for i in range(len(tags_sentences)):
+        taged_sentence = tags_sentences[i]
+        sentence = []
+        sentence_tags = []
+        for i in range(len(taged_sentence)):
+            taged_pair = taged_sentence[i]
+            text = taged_pair[0].lower()
+            tag = taged_pair[1]
+            text_idx = word_to_index[text]
+            tag_index = tag_to_index[tag]
+            sentence.append(text_idx)
+            sentence_tags.append(tag_index)
+        sentences.append(sentence)
+        tags.append(sentence_tags)
 
     model.eval()
-    acc = 0
-    for i in range(len(text_sentences)):
-        text = text_sentences[i]
+    total_acc = 0
+    for i in range(len(sentences)):
+        text = sentences[i]
         features = features_sentences[i]
         tag = tags[i]
 
@@ -984,24 +1017,21 @@ def evaluate_cblstm(data_fn):
         text = torch.from_numpy(np.array(text))
         features = torch.from_numpy(np.array(features))
         tag = torch.from_numpy(np.array(tag))
+
         # cast to tensor int
         text = text.type('torch.LongTensor')
         features = features.type('torch.LongTensor')
         tag = tag.type('torch.LongTensor')
 
         # reshape size
-        # text = text.reshape(1, text.size()[0])
-        # text_features_reshaped = features.reshape((1, text.shape[-1], features_size))
-
-        text = text.reshape(text.size()[0], 1)
-        tag = tag.reshape(tag.size()[0], 1)
-        text_features_reshaped = features.reshape(text.shape[0], 1, features_size)
-
+        text = text.reshape(1, text.size()[0])
+        tag = tag.view(-1)
+        text_features_reshaped = features.reshape(1, text.shape[-1], features_size)
 
         predictions = model(text, text_features_reshaped)
         predictions = predictions.view(-1, predictions.shape[-1])
-        acc += categorical_accuracy(predictions, tag, tag_pad_index)
+        acc = categorical_accuracy(predictions, tag, tag_pad_index)
+        total_acc += acc.item()
 
-    total_acc = acc / len(text_sentences)
-    print(total_acc)
+    print(total_acc / len(text_sentences))
 
