@@ -39,19 +39,14 @@ def test_preprocess():
 
 
 def test_init_model():
-    vectors = tagger.load_pretrained_embeddings('glove.6B.100d.txt')
-    batch_size = 32
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = tagger.preprocess_data_for_RNN(vectors, batch_size,
-                                                                                                 train_path)
-
-    # after preprocessing
-    params_d = {'input_dimension': len(text_field.vocab),
+    # before preprocessing
+    params_d = {'input_dimension': 0,
                 'embedding_dimension': 100,
-                'hidden_dim': 128,
-                'output_dimension': len(tags_field.vocab),
                 'num_of_layers': 2,
-                'dropout': 0.25,
-                'pad_idx': pad_index}
+                'output_dimension': 0,
+                'pretrained_embeddings_fn': 'glove.6B.100d.txt',
+                'data_fn': train_path,
+                'input_rep': 0}
 
     model = tagger.initialize_rnn_model(params_d)
     print("Yay")
@@ -91,12 +86,12 @@ def main():
     # # test_viterbi(A, B, sentence=" the small boy")
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
     # test_preprocess()
-    # test_init_model()
+    test_init_model()
     # test_train_RNN_model()
     # test_evaluate_model()
     # test_preprocess_cslstm()
     # test_train_cblstm_model()
-    test_evaluate_cblstm_model()
+    # test_evaluate_cblstm_model()
 
 if __name__ == '__main__':
     main()
