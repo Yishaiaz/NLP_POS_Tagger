@@ -468,10 +468,10 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
 
     if input_rep == 0:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
-                                                                                              params_d['data_fn'])
+                                                                                              train_data)
     else:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
-                                                                                                 params_d['data_fn'])
+                                                                                                 train_data)
 
     # set the model embedding
     pretrained_embeddings = text_field.vocab.vectors
@@ -527,6 +527,7 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
         print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
 
     # torch.save(rnn_model, 'model.pt')
+    return {'lstm': [rnn_model, input_rep]}
 
 
 def rnn_tag_sentence(sentence, model):
@@ -543,7 +544,55 @@ def rnn_tag_sentence(sentence, model):
     """
 
     # TODO complete the code
-    tagged_sentence = ""
+    params_d = get_model_params(model)
+    input_rep = params_d['input_rep']
+
+    tag_pad_index = 1
+    # model = torch.load('model.pt')
+
+    model = model.to(device)
+    word_to_index = model.word_to_index
+
+    features = []
+    features_size = 3
+    if input_rep == 1:
+        features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), sentence))
+        features = features_sentences[0]
+
+    sentence_indices = []
+    for word in sentence:
+        word_idx = word_to_index[word]
+        sentence_indices.append(word_idx)
+
+    model.eval()
+
+    # input transformations
+    sentence_indices = torch.from_numpy(np.array(sentence_indices))
+
+    # cast to tensor int
+    sentence_indices = sentence_indices.type('torch.LongTensor')
+
+    # reshape size
+    sentence_indices = sentence_indices.reshape(1, sentence_indices.size()[0])
+
+    if input_rep == 1:
+        features = torch.from_numpy(np.array(features))
+        features = features.type('torch.LongTensor')
+        features = features.reshape(1, sentence_indices.shape[-1], features_size)
+
+    if input_rep == 0:
+        predictions = model(sentence_indices)
+    else:
+        predictions = model(sentence_indices, features)
+
+    predictions = predictions.view(-1, predictions.shape[-1])
+
+    tagged_sentence = []
+    for i in range(len(sentence)):
+        word = sentence[i]
+        tag = predictions[i]
+        tagged_sentence.append((word, tag))
+
     return tagged_sentence
 
 
@@ -633,8 +682,7 @@ def get_possible_tags(word):
     return tags
 
 
-def build_corpus_text_df(filename):
-    train_tagged_sentences = load_annotated_corpus(filename)
+def build_corpus_text_df(train_tagged_sentences):
     sentences_and_tags_dicts = []
     untagged_sentences = []
     tags_sentences = []
@@ -651,8 +699,8 @@ def build_corpus_text_df(filename):
     return pd.DataFrame(sentences_and_tags_dicts)
 
 
-def preprocess_data_for_RNN(vectors, batch_size, train_path):
-    df = build_corpus_text_df(train_path)
+def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences):
+    df = build_corpus_text_df(train_tagged_sentences)
     df.to_csv('train_text_data.csv', index=False)
 
     # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
@@ -907,7 +955,7 @@ def word_to_binary(word: str):
     return bits
 
 
-def preprocess_data_for_cblstm(vectors, batch_size, train_path):
+def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences):
     def transform_to_cs_df(df: pd.DataFrame):
         all_sentences = df.loc[:, ['text']]
         all_cs_bits = list()
@@ -922,7 +970,7 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
         df = df[['text', 'text_features', 'tags']]
         return df
 
-    df = build_corpus_text_df(train_path)
+    df = build_corpus_text_df(train_tagged_sentences)
     df = transform_to_cs_df(df)
 
     df.to_csv('train_text_data.csv', index=False)
