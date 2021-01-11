@@ -26,6 +26,8 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
 # trainpath = 'trainTestData/en-ud-train.upos.tsv'
 # testpath = 'trainTestData/en-ud-dev.upos.tsv'
 
@@ -365,11 +367,39 @@ def initialize_rnn_model(params_d):
         #Hint: you may consider adding the embeddings and the vocabulary
         #to the returned dict
     """
-    if not params_d['cblstm']:
+
+    params_d['input_rep'] = params_d.get('input_rep', 0)
+    params_d['hidden_dim'] = params_d.get('hidden_dim', 128)
+    params_d['dropout'] = params_d.get('dropout', 0.25)
+
+    vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
+    batch_size = 32
+
+    model = {}
+    input_rep = params_d['input_rep']
+    if input_rep == 0:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
+                                                                                              params_d['data_fn'])
+        params_d['input_dimension'] = len(text_field.vocab)
+        params_d['output_dimension'] = len(tags_field.vocab)
+        params_d['pad_idx'] = pad_index
+        params_d['word_to_index'] = text_field.vocab
+        params_d['tag_to_index'] = tags_field.vocab
+
         model = BiLSTMPOSTagger(**params_d)
-    else:
+
+    elif input_rep == 1:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
+                                                                                                 params_d['data_fn'])
+        params_d['input_dimension'] = len(text_field.vocab)
+        params_d['output_dimension'] = len(tags_field.vocab)
+        params_d['pad_idx'] = pad_index
+        params_d['word_to_index'] = text_field.vocab
+        params_d['tag_to_index'] = tags_field.vocab
+
         model = CBiLSTMPOSTagger(**params_d)
-    return model
+
+    return {'lstm': model}
 
 
 def get_model_params(model):
@@ -409,7 +439,7 @@ def load_pretrained_embeddings(path, vocab=None):
     return Vectors(name=path, cache=os.getcwd())
 
 
-def train_rnn(model, train_data, val_data = None, input_rep = 0):
+def train_rnn(model, train_data, val_data=None, input_rep=0):
     """Trains the BiLSTM model on the specified data.
 
     Args:
@@ -422,22 +452,82 @@ def train_rnn(model, train_data, val_data = None, input_rep = 0):
         input_rep (int): sets the input representation. Defaults to 0 (vanilla),
                          1: case-base; <other int>: other models, if you are playful
     """
-    #Tips:
+    # Tips:
     # 1. you have to specify an optimizer
     # 2. you have to specify the loss function and the stopping criteria
     # 3. consider using batching
     # 4. some of the above could be implemented in helper functions (not part of
     #    the required API)
+    rnn_model = model['lstm']
+    params_d = get_model_params(rnn_model)
+    input_rep = params_d['input_rep']
 
-    #TODO complete the code
     batch_size = 32
-    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
-    # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    vectors = []
-    train_iter = preprocess_data_for_RNN(vectors, batch_size)
+    epochs = 10
+    vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
 
-    model = model.to(device)
+    if input_rep == 0:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
+                                                                                              train_data)
+    else:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
+                                                                                                 train_data)
+
+    # set the model embedding
+    pretrained_embeddings = text_field.vocab.vectors
+    rnn_model.embedding.weight.data.copy_(pretrained_embeddings)
+
+    # set optimizer
+    optimizer = optim.Adam(rnn_model.parameters())
+
+    # set criterion
+    criterion = nn.CrossEntropyLoss(ignore_index=tag_pad_index)
+
+    rnn_model = rnn_model.to(device)
     criterion = criterion.to(device)
+
+    features_size = 3
+    text_features = []
+
+    rnn_model.train()
+    for e in range(epochs):
+        epoch_loss = 0
+        epoch_acc = 0
+
+        for batch in data_iter:
+            text = batch.text
+            tags = batch.tags
+
+            if input_rep == 1:
+                text_features = batch.text_features - 2
+                text_features = text_features.reshape((len(batch), text.shape[-1], features_size))
+
+            optimizer.zero_grad()
+
+            if input_rep == 1:
+                predictions = rnn_model(text, text_features)
+            else:
+                predictions = rnn_model(text)
+
+            predictions = predictions.view(-1, predictions.shape[-1])
+            tags = tags.view(-1)
+
+            loss = criterion(predictions, tags)
+
+            acc = categorical_accuracy(predictions, tags, tag_pad_index)
+
+            loss.backward()
+
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            epoch_acc += acc.item()
+
+        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
+        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
+
+    # torch.save(rnn_model, 'model.pt')
+    return {'lstm': [rnn_model, input_rep]}
 
 
 def rnn_tag_sentence(sentence, model):
@@ -454,7 +544,55 @@ def rnn_tag_sentence(sentence, model):
     """
 
     # TODO complete the code
-    tagged_sentence = ""
+    params_d = get_model_params(model)
+    input_rep = params_d['input_rep']
+
+    tag_pad_index = 1
+    # model = torch.load('model.pt')
+
+    model = model.to(device)
+    word_to_index = model.word_to_index
+
+    features = []
+    features_size = 3
+    if input_rep == 1:
+        features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), sentence))
+        features = features_sentences[0]
+
+    sentence_indices = []
+    for word in sentence:
+        word_idx = word_to_index[word]
+        sentence_indices.append(word_idx)
+
+    model.eval()
+
+    # input transformations
+    sentence_indices = torch.from_numpy(np.array(sentence_indices))
+
+    # cast to tensor int
+    sentence_indices = sentence_indices.type('torch.LongTensor')
+
+    # reshape size
+    sentence_indices = sentence_indices.reshape(1, sentence_indices.size()[0])
+
+    if input_rep == 1:
+        features = torch.from_numpy(np.array(features))
+        features = features.type('torch.LongTensor')
+        features = features.reshape(1, sentence_indices.shape[-1], features_size)
+
+    if input_rep == 0:
+        predictions = model(sentence_indices)
+    else:
+        predictions = model(sentence_indices, features)
+
+    predictions = predictions.view(-1, predictions.shape[-1])
+
+    tagged_sentence = []
+    for i in range(len(sentence)):
+        word = sentence[i]
+        tag = predictions[i]
+        tagged_sentence.append((word, tag))
+
     return tagged_sentence
 
 
@@ -506,9 +644,9 @@ def tag_sentence(sentence, model):
     Return:
         list: list of pairs
     """
-    if list(model.keys())[0]=='baseline':
+    if list(model.keys())[0] == 'baseline':
         return baseline_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if list(model.keys())[0]=='hmm':
+    if list(model.keys())[0] == 'hmm':
         return hmm_tag_sentence(sentence, model.values()[0], model.values()[1])
     if list(model.keys())[0] == 'blstm':
         return rnn_tag_sentence(sentence, model.values()[0])
@@ -544,8 +682,7 @@ def get_possible_tags(word):
     return tags
 
 
-def build_corpus_text_df(filename):
-    train_tagged_sentences = load_annotated_corpus(filename)
+def build_corpus_text_df(train_tagged_sentences):
     sentences_and_tags_dicts = []
     untagged_sentences = []
     tags_sentences = []
@@ -562,8 +699,8 @@ def build_corpus_text_df(filename):
     return pd.DataFrame(sentences_and_tags_dicts)
 
 
-def preprocess_data_for_RNN(vectors, batch_size, train_path):
-    df = build_corpus_text_df(train_path)
+def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences):
+    df = build_corpus_text_df(train_tagged_sentences)
     df.to_csv('train_text_data.csv', index=False)
 
     # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
@@ -595,26 +732,30 @@ class BiLSTMPOSTagger(nn.Module):
     def __init__(self,
                  input_dimension,
                  embedding_dimension,
-                 hidden_dim,
-                 output_dimension,
                  num_of_layers,
+                 output_dimension,
+                 pretrained_embeddings_fn,
+                 data_fn,
+                 input_rep,
+                 hidden_dim,
                  dropout,
                  pad_idx,
                  word_to_index,
-                 tag_to_index,
-                 cblstm):
+                 tag_to_index):
         super().__init__()
 
         self.params_d = {'input_dimension': input_dimension,
                          'embedding_dimension': embedding_dimension,
-                         'hidden_dim': hidden_dim,
-                         'output_dimension': output_dimension,
                          'num_of_layers': num_of_layers,
+                         'output_dimension': output_dimension,
+                         'pretrained_embeddings_fn': pretrained_embeddings_fn,
+                         'data_fn': data_fn,
+                         'input_rep': input_rep,
+                         'hidden_dim': hidden_dim,
                          'dropout': dropout,
                          'pad_idx': pad_idx,
                          'word_to_index': word_to_index,
-                         'tag_to_index': tag_to_index,
-                         'cblstm': cblstm}
+                         'tag_to_index': tag_to_index}
 
         self.word_to_index = word_to_index
         self.tag_to_index = tag_to_index
@@ -660,7 +801,7 @@ class BiLSTMPOSTagger(nn.Module):
 
 def train_RNN_model(data_fn, pretrained_embeddings_fn):
     batch_size = 32
-    epochs =10
+    epochs = 10
 
     criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
@@ -739,7 +880,7 @@ def categorical_accuracy(preds, y, tag_pad_idx):
     """
     Returns accuracy per batch, i.e. if you get 8/10 right, this returns 0.8, NOT 8
     """
-    max_preds = preds.argmax(dim = 1, keepdim = True) # get the index of the max probability
+    max_preds = preds.argmax(dim=1, keepdim=True)  # get the index of the max probability
     non_pad_elements = (y != tag_pad_idx).nonzero()
     correct = max_preds[non_pad_elements].squeeze(1).eq(y[non_pad_elements])
     return correct.sum() / torch.FloatTensor([y[non_pad_elements].shape[0]])
@@ -798,6 +939,7 @@ def evaluate(data_fn):
 
     print(total_acc / len(sentences))
 
+
 #  *********************************** CB LSTM added functionality (not api) *******************************************
 
 def word_to_binary(word: str):
@@ -813,8 +955,7 @@ def word_to_binary(word: str):
     return bits
 
 
-def preprocess_data_for_cblstm(vectors, batch_size, train_path):
-
+def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences):
     def transform_to_cs_df(df: pd.DataFrame):
         all_sentences = df.loc[:, ['text']]
         all_cs_bits = list()
@@ -829,8 +970,7 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_path):
         df = df[['text', 'text_features', 'tags']]
         return df
 
-
-    df = build_corpus_text_df(train_path)
+    df = build_corpus_text_df(train_tagged_sentences)
     df = transform_to_cs_df(df)
 
     df.to_csv('train_text_data.csv', index=False)
@@ -862,26 +1002,29 @@ class CBiLSTMPOSTagger(nn.Module):
     def __init__(self,
                  input_dimension,
                  embedding_dimension,
-                 hidden_dim,
-                 output_dimension,
                  num_of_layers,
+                 output_dimension,
+                 pretrained_embeddings_fn,
+                 data_fn,
+                 input_rep,
+                 hidden_dim,
                  dropout,
                  pad_idx,
                  word_to_index,
-                 tag_to_index,
-                 cblstm):
+                 tag_to_index):
         super().__init__()
-
         self.params_d = {'input_dimension': input_dimension,
                          'embedding_dimension': embedding_dimension,
-                         'hidden_dim': hidden_dim,
-                         'output_dimension': output_dimension,
                          'num_of_layers': num_of_layers,
+                         'output_dimension': output_dimension,
+                         'pretrained_embeddings_fn': pretrained_embeddings_fn,
+                         'data_fn': data_fn,
+                         'input_rep': input_rep,
+                         'hidden_dim': hidden_dim,
                          'dropout': dropout,
                          'pad_idx': pad_idx,
                          'word_to_index': word_to_index,
-                         'tag_to_index': tag_to_index,
-                         'cblstm': cblstm}
+                         'tag_to_index': tag_to_index}
 
         self.word_to_index = word_to_index
         self.tag_to_index = tag_to_index
@@ -897,7 +1040,6 @@ class CBiLSTMPOSTagger(nn.Module):
         self.fc = nn.Linear(hidden_dim * 2, output_dimension)
 
         self.dropout = nn.Dropout(dropout)
-
 
     def forward(self, text, text_features):
         # text_features [batch_size, sent len, features len]
@@ -931,11 +1073,12 @@ class CBiLSTMPOSTagger(nn.Module):
 def train_cblstm_model(data_fn, pretrained_embeddings_fn):
     features_size = 3
     batch_size = 32
-    epochs =10
+    epochs = 10
 
     criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
     vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size, data_fn)
+    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
+                                                                                             data_fn)
     params_d = {'input_dimension': len(text_field.vocab),
                 'embedding_dimension': 100,
                 'hidden_dim': 128,
@@ -1068,4 +1211,3 @@ def evaluate_cblstm(data_fn):
         total_acc += acc.item()
 
     print(total_acc / len(text_sentences))
-
