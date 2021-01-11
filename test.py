@@ -46,10 +46,10 @@ def test_init_model():
                 'output_dimension': 0,
                 'pretrained_embeddings_fn': 'glove.6B.100d.txt',
                 'data_fn': train_path,
-                'input_rep': 0}
+                'input_rep': 1}
 
-    model = tagger.initialize_rnn_model(params_d)
-    print("Yay")
+    model_d = tagger.initialize_rnn_model(params_d)
+    return model_d
 
 
 def test_train_RNN_model():
@@ -79,6 +79,11 @@ def test_evaluate_cblstm_model():
     tagger.evaluate_cblstm(test_path)
 
 
+def test_api_train_RNN():
+    model_d = test_init_model()
+    tagger.train_rnn(model_d, tagger.load_annotated_corpus(train_path))
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -86,12 +91,13 @@ def main():
     # # test_viterbi(A, B, sentence=" the small boy")
     # test_hmm_tag_sentence(A, B, sentence=" Jhon likes the blue house at the end of the street")
     # test_preprocess()
-    test_init_model()
+    # test_init_model()
     # test_train_RNN_model()
     # test_evaluate_model()
     # test_preprocess_cslstm()
     # test_train_cblstm_model()
     # test_evaluate_cblstm_model()
+    test_api_train_RNN()
 
 if __name__ == '__main__':
     main()

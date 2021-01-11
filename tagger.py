@@ -391,7 +391,7 @@ def initialize_rnn_model(params_d):
     elif input_rep == 1:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
                                                                                                  params_d['data_fn'])
-        params_d['input_dimension'] = len(text_field.vocab) + 3
+        params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
         params_d['word_to_index'] = text_field.vocab
@@ -458,16 +458,75 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
     # 3. consider using batching
     # 4. some of the above could be implemented in helper functions (not part of
     #    the required API)
+    rnn_model = model['lstm']
+    params_d = get_model_params(rnn_model)
+    input_rep = params_d['input_rep']
 
-    # TODO complete the code
     batch_size = 32
-    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
-    # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    vectors = []
-    train_iter = preprocess_data_for_RNN(vectors, batch_size)
+    epochs = 10
+    vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
 
-    model = model.to(device)
+    if input_rep == 0:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
+                                                                                              params_d['data_fn'])
+    else:
+        data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
+                                                                                                 params_d['data_fn'])
+
+    # set the model embedding
+    pretrained_embeddings = text_field.vocab.vectors
+    rnn_model.embedding.weight.data.copy_(pretrained_embeddings)
+
+    # set optimizer
+    optimizer = optim.Adam(rnn_model.parameters())
+
+    # set criterion
+    criterion = nn.CrossEntropyLoss(ignore_index=tag_pad_index)
+
+    rnn_model = rnn_model.to(device)
     criterion = criterion.to(device)
+
+    features_size = 3
+    text_features = []
+
+    rnn_model.train()
+    for e in range(epochs):
+        epoch_loss = 0
+        epoch_acc = 0
+
+        for batch in data_iter:
+            text = batch.text
+            tags = batch.tags
+
+            if input_rep == 1:
+                text_features = batch.text_features - 2
+                text_features = text_features.reshape((len(batch), text.shape[-1], features_size))
+
+            optimizer.zero_grad()
+
+            if input_rep == 1:
+                predictions = rnn_model(text, text_features)
+            else:
+                predictions = rnn_model(text)
+
+            predictions = predictions.view(-1, predictions.shape[-1])
+            tags = tags.view(-1)
+
+            loss = criterion(predictions, tags)
+
+            acc = categorical_accuracy(predictions, tags, tag_pad_index)
+
+            loss.backward()
+
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            epoch_acc += acc.item()
+
+        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
+        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
+
+    # torch.save(rnn_model, 'model.pt')
 
 
 def rnn_tag_sentence(sentence, model):
