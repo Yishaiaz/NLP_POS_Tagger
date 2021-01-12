@@ -167,6 +167,7 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         Return:
         list: list of pairs
     """
+    global global_word_to_index
 
     tagged_sentence = []
     for word in sentence:
@@ -181,6 +182,7 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
             word_tag_pair = (word, sampled_tag)
         tagged_sentence.append(word_tag_pair)
 
+    global_word_to_index = perWordTagCounts
     return tagged_sentence
 
 
@@ -680,18 +682,23 @@ def count_correct(gold_sentence, pred_sentence):
 
     correct, correctOOV, OOV = 0, 0, 0
     for i in range(len(gold_sentence)):
-        word = gold_sentence[i][0].lower()
+        word = gold_sentence[i][0]
         gold_tag = gold_sentence[i][1]
         pred_tag = pred_sentence[i][1]
 
+        isCorrect = False
+        isOOV = False
+
         # if word not in global_word_to_index:
-        if global_word_to_index[word] == 0:
+        if global_word_to_index[word] == 0 and global_word_to_index[word.lower()] == 0:
+            isOOV = True
             OOV += 1
 
         if pred_tag == gold_tag:
+            isCorrect = True
             correct += 1
 
-        if pred_tag == gold_tag and global_word_to_index[word] == 0:
+        if isCorrect and isOOV:
             correctOOV += 1
 
     return correct, correctOOV, OOV
