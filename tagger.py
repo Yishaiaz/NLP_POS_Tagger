@@ -125,6 +125,7 @@ def learn_params(tagged_sentences):
     Return:
     [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
+    global global_word_to_index
     num_of_sentences = len(tagged_sentences)
     all_possible_tags = []
 
@@ -150,6 +151,8 @@ def learn_params(tagged_sentences):
     for word in perWordTagCounts.keys():
         for tag in allTagCounts.keys():
             B[(word, tag)] = perWordTagCounts[word].get(tag, 1) / (allTagCounts[tag] + total_number_of_tags)
+
+    global_word_to_index = perWordTagCounts
     return [allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B]
 
 
@@ -167,7 +170,6 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         Return:
         list: list of pairs
     """
-    global global_word_to_index
 
     tagged_sentence = []
     for word in sentence:
@@ -182,7 +184,6 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
             word_tag_pair = (word, sampled_tag)
         tagged_sentence.append(word_tag_pair)
 
-    global_word_to_index = perWordTagCounts
     return tagged_sentence
 
 
