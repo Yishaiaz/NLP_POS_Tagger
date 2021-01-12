@@ -84,6 +84,20 @@ def test_api_train_RNN():
     tagger.train_rnn(model_d, tagger.load_annotated_corpus(train_path))
 
 
+def test_rnn_tag_sentence():
+    sentence = "wbnfdc are a Winner"
+    tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
+
+
+def test_count_correct():
+    sentence = "Tamir the AP comes this story :"
+    tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
+    gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
+    pred_sentence = tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
+    print(correct, correctOOV, OOV)
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -97,7 +111,10 @@ def main():
     # test_preprocess_cslstm()
     # test_train_cblstm_model()
     # test_evaluate_cblstm_model()
-    test_api_train_RNN()
+    # test_api_train_RNN()
+    # test_rnn_tag_sentence()
+    test_count_correct()
+
 
 if __name__ == '__main__':
     main()

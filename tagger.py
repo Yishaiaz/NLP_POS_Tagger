@@ -26,7 +26,7 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+global_word_to_index = {}
 
 # trainpath = 'trainTestData/en-ud-train.upos.tsv'
 # testpath = 'trainTestData/en-ud-dev.upos.tsv'
@@ -377,9 +377,10 @@ def initialize_rnn_model(params_d):
 
     model = {}
     input_rep = params_d['input_rep']
+    train_data = load_annotated_corpus(params_d['data_fn'])
     if input_rep == 0:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
-                                                                                              params_d['data_fn'])
+                                                                                              train_data)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -390,7 +391,7 @@ def initialize_rnn_model(params_d):
 
     elif input_rep == 1:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
-                                                                                                 params_d['data_fn'])
+                                                                                                 train_data)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -542,26 +543,29 @@ def rnn_tag_sentence(sentence, model):
     Return:
         list: list of pairs
     """
+    global global_word_to_index
+    # params_d = get_model_params(model)
+    # input_rep = params_d['input_rep']
 
-    # TODO complete the code
-    params_d = get_model_params(model)
-    input_rep = params_d['input_rep']
-
-    tag_pad_index = 1
     # model = torch.load('model.pt')
+    # input_rep = 0
+
+    model = torch.load('cblstm_model.pt')
+    input_rep = 1
 
     model = model.to(device)
     word_to_index = model.word_to_index
+    index_to_tag = model.tag_to_index.itos
 
     features = []
     features_size = 3
-    if input_rep == 1:
-        features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), sentence))
-        features = features_sentences[0]
 
     sentence_indices = []
     for word in sentence:
-        word_idx = word_to_index[word]
+        word_idx = word_to_index[word.lower()]
+        if input_rep == 1:
+            word_features = word_to_binary(word)
+            features.append(word_features)
         sentence_indices.append(word_idx)
 
     model.eval()
@@ -586,13 +590,16 @@ def rnn_tag_sentence(sentence, model):
         predictions = model(sentence_indices, features)
 
     predictions = predictions.view(-1, predictions.shape[-1])
+    max_predictions = predictions.argmax(dim=1)
 
     tagged_sentence = []
     for i in range(len(sentence)):
         word = sentence[i]
-        tag = predictions[i]
+        tag_index = max_predictions[i].item()
+        tag = index_to_tag[tag_index]
         tagged_sentence.append((word, tag))
 
+    global_word_to_index = word_to_index
     return tagged_sentence
 
 
@@ -603,8 +610,13 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    # TODO complete the code
-    model_params = {}
+    model_params = {'input_dimension': 0,
+                'embedding_dimension': 100,
+                'num_of_layers': 2,
+                'output_dimension': 0,
+                'pretrained_embeddings_fn': 'glove.6B.100d.txt',
+                'data_fn': 'en-ud-train.upos.tsv',
+                'input_rep': 1}
     return model_params
 
 
@@ -666,8 +678,22 @@ def count_correct(gold_sentence, pred_sentence):
     """
     assert len(gold_sentence) == len(pred_sentence)
 
-    # TODO complete the code
-    correct, correctOOV, OOV = "", "", ""
+    correct, correctOOV, OOV = 0, 0, 0
+    for i in range(len(gold_sentence)):
+        word = gold_sentence[i][0].lower()
+        gold_tag = gold_sentence[i][1]
+        pred_tag = pred_sentence[i][1]
+
+        # if word not in global_word_to_index:
+        if global_word_to_index[word] == 0:
+            OOV += 1
+
+        if pred_tag == gold_tag:
+            correct += 1
+
+        if pred_tag == gold_tag and global_word_to_index[word] == 0:
+            correctOOV += 1
+
     return correct, correctOOV, OOV
 
 
