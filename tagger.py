@@ -26,7 +26,7 @@ import sys, os, time, platform, nltk, random
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+global_word_to_index = {}
 
 # trainpath = 'trainTestData/en-ud-train.upos.tsv'
 # testpath = 'trainTestData/en-ud-dev.upos.tsv'
@@ -543,7 +543,7 @@ def rnn_tag_sentence(sentence, model):
     Return:
         list: list of pairs
     """
-
+    global global_word_to_index
     # params_d = get_model_params(model)
     # input_rep = params_d['input_rep']
 
@@ -599,6 +599,7 @@ def rnn_tag_sentence(sentence, model):
         tag = index_to_tag[tag_index]
         tagged_sentence.append((word, tag))
 
+    global_word_to_index = word_to_index
     return tagged_sentence
 
 
@@ -677,8 +678,22 @@ def count_correct(gold_sentence, pred_sentence):
     """
     assert len(gold_sentence) == len(pred_sentence)
 
-    # TODO complete the code
-    correct, correctOOV, OOV = "", "", ""
+    correct, correctOOV, OOV = 0, 0, 0
+    for i in range(len(gold_sentence)):
+        word = gold_sentence[i][0].lower()
+        gold_tag = gold_sentence[i][1]
+        pred_tag = pred_sentence[i][1]
+
+        # if word not in global_word_to_index:
+        if global_word_to_index[word] == 0:
+            OOV += 1
+
+        if pred_tag == gold_tag:
+            correct += 1
+
+        if pred_tag == gold_tag and global_word_to_index[word] == 0:
+            correctOOV += 1
+
     return correct, correctOOV, OOV
 
 

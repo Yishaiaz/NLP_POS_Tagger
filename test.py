@@ -90,10 +90,12 @@ def test_rnn_tag_sentence():
 
 
 def test_count_correct():
-    gold_sentence = []
-    sentence = "wbnfdc are a Winner"
+    sentence = "Tamir the AP comes this story :"
+    tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
+    gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
     pred_sentence = tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
-    tagger.count_correct(gold_sentence, pred_sentence)
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
+    print(correct, correctOOV, OOV)
 
 
 def main():
