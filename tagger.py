@@ -377,9 +377,10 @@ def initialize_rnn_model(params_d):
 
     model = {}
     input_rep = params_d['input_rep']
+    train_data = load_annotated_corpus(params_d['data_fn'])
     if input_rep == 0:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
-                                                                                              params_d['data_fn'])
+                                                                                              train_data)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -390,7 +391,7 @@ def initialize_rnn_model(params_d):
 
     elif input_rep == 1:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
-                                                                                                 params_d['data_fn'])
+                                                                                                 train_data)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -554,6 +555,7 @@ def rnn_tag_sentence(sentence, model):
 
     model = model.to(device)
     word_to_index = model.word_to_index
+    index_to_tag = model.tag_to_index.itos
 
     features = []
     features_size = 3
@@ -593,7 +595,8 @@ def rnn_tag_sentence(sentence, model):
     tagged_sentence = []
     for i in range(len(sentence)):
         word = sentence[i]
-        tag = max_predictions[i].item()
+        tag_index = max_predictions[i].item()
+        tag = index_to_tag[tag_index]
         tagged_sentence.append((word, tag))
 
     return tagged_sentence
@@ -606,8 +609,13 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    # TODO complete the code
-    model_params = {}
+    model_params = {'input_dimension': 0,
+                'embedding_dimension': 100,
+                'num_of_layers': 2,
+                'output_dimension': 0,
+                'pretrained_embeddings_fn': 'glove.6B.100d.txt',
+                'data_fn': 'en-ud-train.upos.tsv',
+                'input_rep': 1}
     return model_params
 
 

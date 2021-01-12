@@ -89,6 +89,13 @@ def test_rnn_tag_sentence():
     tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
 
 
+def test_count_correct():
+    gold_sentence = []
+    sentence = "wbnfdc are a Winner"
+    pred_sentence = tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
+    tagger.count_correct(gold_sentence, pred_sentence)
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -103,7 +110,9 @@ def main():
     # test_train_cblstm_model()
     # test_evaluate_cblstm_model()
     # test_api_train_RNN()
-    test_rnn_tag_sentence()
+    # test_rnn_tag_sentence()
+    test_count_correct()
+
 
 if __name__ == '__main__':
     main()
