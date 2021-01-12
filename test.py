@@ -84,6 +84,11 @@ def test_api_train_RNN():
     tagger.train_rnn(model_d, tagger.load_annotated_corpus(train_path))
 
 
+def test_rnn_tag_sentence():
+    sentence = "wbnfdc are a Winner"
+    tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -97,7 +102,8 @@ def main():
     # test_preprocess_cslstm()
     # test_train_cblstm_model()
     # test_evaluate_cblstm_model()
-    test_api_train_RNN()
+    # test_api_train_RNN()
+    test_rnn_tag_sentence()
 
 if __name__ == '__main__':
     main()

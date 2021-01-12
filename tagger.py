@@ -543,25 +543,27 @@ def rnn_tag_sentence(sentence, model):
         list: list of pairs
     """
 
-    # TODO complete the code
-    params_d = get_model_params(model)
-    input_rep = params_d['input_rep']
+    # params_d = get_model_params(model)
+    # input_rep = params_d['input_rep']
 
-    tag_pad_index = 1
     # model = torch.load('model.pt')
+    # input_rep = 0
+
+    model = torch.load('cblstm_model.pt')
+    input_rep = 1
 
     model = model.to(device)
     word_to_index = model.word_to_index
 
     features = []
     features_size = 3
-    if input_rep == 1:
-        features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), sentence))
-        features = features_sentences[0]
 
     sentence_indices = []
     for word in sentence:
-        word_idx = word_to_index[word]
+        word_idx = word_to_index[word.lower()]
+        if input_rep == 1:
+            word_features = word_to_binary(word)
+            features.append(word_features)
         sentence_indices.append(word_idx)
 
     model.eval()
@@ -586,11 +588,12 @@ def rnn_tag_sentence(sentence, model):
         predictions = model(sentence_indices, features)
 
     predictions = predictions.view(-1, predictions.shape[-1])
+    max_predictions = predictions.argmax(dim=1)
 
     tagged_sentence = []
     for i in range(len(sentence)):
         word = sentence[i]
-        tag = predictions[i]
+        tag = max_predictions[i].item()
         tagged_sentence.append((word, tag))
 
     return tagged_sentence
