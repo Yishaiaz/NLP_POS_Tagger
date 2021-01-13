@@ -89,11 +89,35 @@ def test_rnn_tag_sentence():
     tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
 
 
-def test_count_correct():
+def test_rnn_count_correct():
     sentence = "Tamir the AP comes this story :"
     tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
     gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
     pred_sentence = tagger.rnn_tag_sentence(model={}, sentence=sentence.split())
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
+    print(correct, correctOOV, OOV)
+
+
+def test_baseline_count_correct():
+    sentence = "Tamir the AP comes this story :"
+    tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
+    gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
+
+    sentences = tagger.load_annotated_corpus('trainTestData/en-ud-train.upos.tsv')
+    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tagger.learn_params(sentences)
+    pred_sentence = tagger.baseline_tag_sentence(sentence.split(), perWordTagCounts, allTagCounts)
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
+    print(correct, correctOOV, OOV)
+
+
+def test_hmm_count_correct():
+    sentence = "Tamir the AP comes this story :"
+    tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
+    gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
+
+    sentences = tagger.load_annotated_corpus('trainTestData/en-ud-train.upos.tsv')
+    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tagger.learn_params(sentences)
+    pred_sentence = tagger.hmm_tag_sentence(sentence.split(), A, B)
     correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
     print(correct, correctOOV, OOV)
 
@@ -113,7 +137,9 @@ def main():
     # test_evaluate_cblstm_model()
     # test_api_train_RNN()
     # test_rnn_tag_sentence()
-    test_count_correct()
+    test_rnn_count_correct()
+    test_baseline_count_correct()
+    test_hmm_count_correct()
 
 
 if __name__ == '__main__':
