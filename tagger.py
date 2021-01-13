@@ -1283,3 +1283,34 @@ def evaluate_cblstm(data_fn):
         total_acc += acc.item()
 
     print(total_acc / len(text_sentences))
+
+def evaluate_HMM(data_fn):
+    tags_sentences = load_annotated_corpus(data_fn)
+    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tuple(learn_params(tags_sentences))
+
+    total_acc = 0
+    for i in range(len(tags_sentences)):
+        tagged_sentence = tags_sentences[i]
+        un_tagged_text = list(map(lambda k: k[0], tagged_sentence))
+        true_tags_only = list(map(lambda k: k[1], tagged_sentence))
+        pred_tags = list(map(lambda x: x[1], hmm_tag_sentence(un_tagged_text, A, B)))
+        acc = list(map(lambda x,y: x == y, pred_tags, true_tags_only))
+        total_acc += sum(acc)/len(acc)
+
+    print(total_acc / len(tags_sentences))
+
+
+def evaluate_baseline(data_fn):
+    tags_sentences = load_annotated_corpus(data_fn)
+    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tuple(learn_params(tags_sentences))
+
+    total_acc = 0
+    for i in range(len(tags_sentences)):
+        tagged_sentence = tags_sentences[i]
+        un_tagged_text = list(map(lambda k: k[0], tagged_sentence))
+        true_tags_only = list(map(lambda k: k[1], tagged_sentence))
+        pred_tags = list(map(lambda x: x[1], baseline_tag_sentence(un_tagged_text, perWordTagCounts, allTagCounts)))
+        acc = list(map(lambda x,y: x == y, pred_tags, true_tags_only))
+        total_acc += sum(acc)/len(acc)
+
+    print(total_acc / len(tags_sentences))
