@@ -23,6 +23,8 @@ from collections import Counter
 
 import sys, os, time, platform, nltk, random
 
+path_separator = os.path.sep
+
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -648,7 +650,7 @@ def get_best_performing_model_params():
                     'num_of_layers': 2,
                     'output_dimension': 0,
                     'pretrained_embeddings_fn': 'glove.6B.100d.txt',
-                    'data_fn': 'en-ud-train.upos.tsv'}
+                    'data_fn': 'trainTestData' + path_separator + 'en-ud-train.upos.tsv'}
     return model_params
 
 
