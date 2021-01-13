@@ -40,13 +40,14 @@ def test_preprocess():
 
 def test_init_model():
     # before preprocessing
-    params_d = {'input_dimension': 0,
+    params_d = {'max_vocab_size': float('inf'),
+                'min_frequency': 1,
+                'input_rep': 1,
                 'embedding_dimension': 100,
                 'num_of_layers': 2,
                 'output_dimension': 0,
                 'pretrained_embeddings_fn': 'glove.6B.100d.txt',
-                'data_fn': train_path,
-                'input_rep': 1}
+                'data_fn': train_path}
 
     model_d = tagger.initialize_rnn_model(params_d)
     return model_d
@@ -122,6 +123,20 @@ def test_hmm_count_correct():
     print(correct, correctOOV, OOV)
 
 
+def test_tag_sentence():
+    sentence = "Tamir the AP comes this story :"
+    sentences = tagger.load_annotated_corpus('trainTestData/en-ud-train.upos.tsv')
+    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tagger.learn_params(sentences)
+
+    #  Models that must be supported (you can add more):
+    baseline = {'baseline': [perWordTagCounts, allTagCounts]}
+    # HMM: {'hmm': [A,B]}
+    # Vanilla BiLSTM: {'blstm':[model_dict]}
+    # BiLSTM+case: {'cblstm': [model_dict]}
+
+    tagger.tag_sentence(sentence.split(), baseline)
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -138,8 +153,9 @@ def main():
     # test_api_train_RNN()
     # test_rnn_tag_sentence()
     test_rnn_count_correct()
-    test_baseline_count_correct()
-    test_hmm_count_correct()
+    # test_baseline_count_correct()
+    # test_hmm_count_correct()
+    # test_tag_sentence()
 
 
 if __name__ == '__main__':

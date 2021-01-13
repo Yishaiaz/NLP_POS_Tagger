@@ -28,6 +28,7 @@ import sys, os, time, platform, nltk, random
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 global_word_to_index = {}
 
+
 # trainpath = 'trainTestData/en-ud-train.upos.tsv'
 # testpath = 'trainTestData/en-ud-dev.upos.tsv'
 
@@ -354,19 +355,35 @@ def initialize_rnn_model(params_d):
     Args:
         params_d (dict): a dictionary of parameters specifying the model. The dict
                         should include (at least) the following keys:
-                        {'input_dimension': vocabulary size (int),
+                        {'max_vocab_size': max vocabulary size (int),
+                        'min_frequency': the occurence threshold to consider (int),
+                        'input_rep': 0 for the vanilla and 1 for the case-base (int),
                         'embedding_dimension': embedding vectors size (int),
                         'num_of_layers': number of layers (int),
                         'output_dimension': number of tags in tagset (int),
                         'pretrained_embeddings_fn': str,
                         'data_fn': str
                         }
+                        max_vocab_size sets a constraints on the vocab dimention.
+                            If the its value is smaller than the number of unique
+                            tokens in data_fn, the words to consider are the most
+                            frequent words. If max_vocab_size = -1, all words
+                            occuring more that min_frequency are considered.
+                        min_frequency privides a threshold under which words are
+                            not considered at all. (If min_frequency=1 all words
+                            up to max_vocab_size are considered;
+                            If min_frequency=3, we only consider words that appear
+                            at least three times.)
+                        input_rep (int): sets the input representation. Values:
+                            0 (vanilla), 1 (case-base);
+                            <other int>: other models, if you are playful
                         The dictionary can include other keys, if you use them,
                              BUT you shouldn't assume they will be specified by
                              the user, so you should spacify default values.
     Return:
         a dictionary with the at least the following key-value pairs:
-                                       {'lstm': torch.nn.Module object}
+                                       {'lstm': torch.nn.Module object,
+                                       input_rep: [0|1]}
         #Hint: you may consider adding the embeddings and the vocabulary
         #to the returned dict
     """
@@ -381,9 +398,13 @@ def initialize_rnn_model(params_d):
     model = {}
     input_rep = params_d['input_rep']
     train_data = load_annotated_corpus(params_d['data_fn'])
+    max_vocab_size = params_d['max_vocab_size']
+    min_frequency = params_d['min_frequency']
     if input_rep == 0:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
-                                                                                              train_data)
+                                                                                              train_data,
+                                                                                              max_vocab_size,
+                                                                                              min_frequency)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -394,7 +415,9 @@ def initialize_rnn_model(params_d):
 
     elif input_rep == 1:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
-                                                                                                 train_data)
+                                                                                                 train_data,
+                                                                                                 max_vocab_size,
+                                                                                                 min_frequency)
         params_d['input_dimension'] = len(text_field.vocab)
         params_d['output_dimension'] = len(tags_field.vocab)
         params_d['pad_idx'] = pad_index
@@ -403,7 +426,7 @@ def initialize_rnn_model(params_d):
 
         model = CBiLSTMPOSTagger(**params_d)
 
-    return {'lstm': model}
+    return {'lstm': model, 'input_rep': input_rep}
 
 
 def get_model_params(model):
@@ -469,13 +492,18 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
     batch_size = 32
     epochs = 10
     vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
-
+    max_vocab_size = params_d['max_vocab_size']
+    min_frequency = params_d['min_frequency']
     if input_rep == 0:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size,
-                                                                                              train_data)
+                                                                                              train_data,
+                                                                                              max_vocab_size,
+                                                                                              min_frequency)
     else:
         data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_cblstm(vectors, batch_size,
-                                                                                                 train_data)
+                                                                                                 train_data,
+                                                                                                 max_vocab_size,
+                                                                                                 min_frequency)
 
     # set the model embedding
     pretrained_embeddings = text_field.vocab.vectors
@@ -613,13 +641,14 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    model_params = {'input_dimension': 0,
-                'embedding_dimension': 100,
-                'num_of_layers': 2,
-                'output_dimension': 0,
-                'pretrained_embeddings_fn': 'glove.6B.100d.txt',
-                'data_fn': 'en-ud-train.upos.tsv',
-                'input_rep': 1}
+    model_params = {'max_vocab_size': float('inf'),
+                    'min_frequency': 1,
+                    'input_rep': 1,
+                    'embedding_dimension': 100,
+                    'num_of_layers': 2,
+                    'output_dimension': 0,
+                    'pretrained_embeddings_fn': 'glove.6B.100d.txt',
+                    'data_fn': 'en-ud-train.upos.tsv'}
     return model_params
 
 
@@ -733,7 +762,7 @@ def build_corpus_text_df(train_tagged_sentences):
     return pd.DataFrame(sentences_and_tags_dicts)
 
 
-def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences):
+def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences, max_vocab_size, min_frequency):
     df = build_corpus_text_df(train_tagged_sentences)
     df.to_csv('train_text_data.csv', index=False)
 
@@ -754,8 +783,8 @@ def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences):
     data_iter = BucketIterator(train_data, batch_size=batch_size)
 
     # Vocabulary
-    text_field.build_vocab(train_data, vectors=vectors)
-    tags_field.build_vocab(train_data)
+    text_field.build_vocab(train_data, vectors=vectors, min_freq=min_frequency, max_size=max_vocab_size)
+    tags_field.build_vocab(train_data, min_freq=min_frequency, max_size=max_vocab_size)
 
     pad_index = text_field.vocab.stoi[text_field.pad_token]
     tag_pad_index = tags_field.vocab.stoi[tags_field.pad_token]
@@ -765,6 +794,8 @@ def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences):
 class BiLSTMPOSTagger(nn.Module):
     def __init__(self,
                  input_dimension,
+                 max_vocab_size,
+                 min_frequency,
                  embedding_dimension,
                  num_of_layers,
                  output_dimension,
@@ -779,6 +810,8 @@ class BiLSTMPOSTagger(nn.Module):
         super().__init__()
 
         self.params_d = {'input_dimension': input_dimension,
+                         'max_vocab_size': max_vocab_size,
+                         'min_frequency': min_frequency,
                          'embedding_dimension': embedding_dimension,
                          'num_of_layers': num_of_layers,
                          'output_dimension': output_dimension,
@@ -989,7 +1022,7 @@ def word_to_binary(word: str):
     return bits
 
 
-def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences):
+def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences, max_vocab_size, min_frequency):
     def transform_to_cs_df(df: pd.DataFrame):
         all_sentences = df.loc[:, ['text']]
         all_cs_bits = list()
@@ -1023,8 +1056,8 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences):
     data_iter = BucketIterator(train_data, batch_size=batch_size)
 
     # Vocabulary
-    text_field.build_vocab(train_data, vectors=vectors)
-    tags_field.build_vocab(train_data)
+    text_field.build_vocab(train_data, vectors=vectors, min_freq=min_frequency, max_size=max_vocab_size)
+    tags_field.build_vocab(train_data, min_freq=min_frequency, max_size=max_vocab_size)
     text_features_field.build_vocab(train_data)
 
     pad_index = text_field.vocab.stoi[text_field.pad_token]
@@ -1035,6 +1068,8 @@ def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences):
 class CBiLSTMPOSTagger(nn.Module):
     def __init__(self,
                  input_dimension,
+                 max_vocab_size,
+                 min_frequency,
                  embedding_dimension,
                  num_of_layers,
                  output_dimension,
@@ -1047,7 +1082,10 @@ class CBiLSTMPOSTagger(nn.Module):
                  word_to_index,
                  tag_to_index):
         super().__init__()
+
         self.params_d = {'input_dimension': input_dimension,
+                         'max_vocab_size': max_vocab_size,
+                         'min_frequency': min_frequency,
                          'embedding_dimension': embedding_dimension,
                          'num_of_layers': num_of_layers,
                          'output_dimension': output_dimension,
