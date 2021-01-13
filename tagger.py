@@ -693,9 +693,9 @@ def tag_sentence(sentence, model):
     if list(model.keys())[0] == 'hmm':
         return hmm_tag_sentence(sentence, list(model.values())[0][0], list(model.values())[0][1])
     if list(model.keys())[0] == 'blstm':
-        return rnn_tag_sentence(sentence, list(model.values())[0][0])
+        return rnn_tag_sentence(sentence, list(model.values())[0])
     if list(model.keys())[0] == 'cblstm':
-        return rnn_tag_sentence(sentence, list(model.values())[0][0])
+        return rnn_tag_sentence(sentence, list(model.values())[0])
 
 
 def count_correct(gold_sentence, pred_sentence):
