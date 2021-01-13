@@ -130,11 +130,14 @@ def test_tag_sentence():
 
     #  Models that must be supported (you can add more):
     baseline = {'baseline': [perWordTagCounts, allTagCounts]}
-    # HMM: {'hmm': [A,B]}
-    # Vanilla BiLSTM: {'blstm':[model_dict]}
-    # BiLSTM+case: {'cblstm': [model_dict]}
+    HMM = {'hmm': [A, B]}
+    Vanilla_BiLSTM = {'blstm': [{}]}
+    BiLSTM_case = {'cblstm': [{}]}
 
-    tagger.tag_sentence(sentence.split(), baseline)
+    print(tagger.tag_sentence(sentence.split(), baseline))
+    print(tagger.tag_sentence(sentence.split(), HMM))
+    print(tagger.tag_sentence(sentence.split(), Vanilla_BiLSTM))
+    print(tagger.tag_sentence(sentence.split(), BiLSTM_case))
 
 
 def main():
@@ -152,10 +155,10 @@ def main():
     # test_evaluate_cblstm_model()
     # test_api_train_RNN()
     # test_rnn_tag_sentence()
-    test_rnn_count_correct()
+    # test_rnn_count_correct()
     # test_baseline_count_correct()
     # test_hmm_count_correct()
-    # test_tag_sentence()
+    test_tag_sentence()
 
 
 if __name__ == '__main__':
