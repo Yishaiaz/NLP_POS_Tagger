@@ -554,10 +554,9 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
             optimizer.step()
 
             epoch_loss += loss.item()
-        print('epoch: %s, loss: %s' % (e, epoch_loss/len(data_iter)))
+        # print('epoch: %s, loss: %s' % (e, epoch_loss/len(data_iter)))
 
-
-    torch.save(rnn_model, 'temp.pt')
+    # torch.save(rnn_model, 'temp.pt')
     if input_rep == 0:
         return {'blstm': [rnn_model, input_rep]}
     else:
@@ -577,14 +576,8 @@ def rnn_tag_sentence(sentence, model):
         list: list of pairs
     """
     global global_word_to_index
-    # params_d = get_model_params(model)
-    # input_rep = params_d['input_rep']
-    # model = model
-    # model = torch.load('temp.pt')
-    # input_rep = 0
 
-    # model = torch.load('cblstm_model.pt')
-    input_rep = 1
+    input_rep = get_model_params(model)['input_rep']
 
     model = model.to(device)
     word_to_index = model.word_to_index
