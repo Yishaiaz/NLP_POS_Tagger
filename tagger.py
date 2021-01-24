@@ -554,9 +554,10 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
             optimizer.step()
 
             epoch_loss += loss.item()
+        print('epoch: %s, loss: %s' % (e, epoch_loss/len(data_iter)))
 
 
-    # torch.save(rnn_model, 'model.pt')
+    torch.save(rnn_model, 'temp.pt')
     if input_rep == 0:
         return {'blstm': [rnn_model, input_rep]}
     else:
@@ -578,8 +579,8 @@ def rnn_tag_sentence(sentence, model):
     global global_word_to_index
     # params_d = get_model_params(model)
     # input_rep = params_d['input_rep']
-
-    # model = torch.load('model.pt')
+    # model = model
+    # model = torch.load('temp.pt')
     # input_rep = 0
 
     # model = torch.load('cblstm_model.pt')
@@ -694,9 +695,9 @@ def tag_sentence(sentence, model):
     if list(model.keys())[0] == 'hmm':
         return hmm_tag_sentence(sentence, list(model.values())[0][0], list(model.values())[0][1])
     if list(model.keys())[0] == 'blstm':
-        return rnn_tag_sentence(sentence, list(model.values())[0])
+        return rnn_tag_sentence(sentence, list(model.values())[0][0])
     if list(model.keys())[0] == 'cblstm':
-        return rnn_tag_sentence(sentence, list(model.values())[0])
+        return rnn_tag_sentence(sentence, list(model.values())[0][0])
 
 
 def count_correct(gold_sentence, pred_sentence):
