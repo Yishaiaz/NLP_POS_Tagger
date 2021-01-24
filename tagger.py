@@ -551,17 +551,12 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
 
             loss = criterion(predictions, tags)
 
-            acc = categorical_accuracy(predictions, tags, tag_pad_index)
-
             loss.backward()
 
             optimizer.step()
 
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
 
-        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
-        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
 
     # torch.save(rnn_model, 'model.pt')
     return {'lstm': [rnn_model, input_rep]}
@@ -586,7 +581,7 @@ def rnn_tag_sentence(sentence, model):
     # model = torch.load('model.pt')
     # input_rep = 0
 
-    model = torch.load('cblstm_model.pt')
+    # model = torch.load('cblstm_model.pt')
     input_rep = 1
 
     model = model.to(device)
@@ -932,84 +927,14 @@ def train_RNN_model(data_fn, pretrained_embeddings_fn):
 
             loss = criterion(predictions, tags)
 
-            acc = categorical_accuracy(predictions, tags, tag_pad_index)
-
             loss.backward()
 
             optimizer.step()
 
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
 
-        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
-        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
-        # print(epoch_loss / len(data_iter))
-        # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
-        torch.save(model, 'model.pt')
-
-
-def categorical_accuracy(preds, y, tag_pad_idx):
-    """
-    Returns accuracy per batch, i.e. if you get 8/10 right, this returns 0.8, NOT 8
-    """
-    max_preds = preds.argmax(dim=1, keepdim=True)  # get the index of the max probability
-    non_pad_elements = (y != tag_pad_idx).nonzero()
-    correct = max_preds[non_pad_elements].squeeze(1).eq(y[non_pad_elements])
-    return correct.sum() / torch.FloatTensor([y[non_pad_elements].shape[0]])
-
-
-def evaluate(data_fn):
-    tag_pad_index = 1
-    model = torch.load('model.pt')
-
-    model = model.to(device)
-    word_to_index = model.word_to_index
-    tag_to_index = model.tag_to_index
-
-    tags_sentences = load_annotated_corpus(data_fn)
-    sentences = []
-    tags = []
-
-    for i in range(len(tags_sentences)):
-        taged_sentence = tags_sentences[i]
-        sentence = []
-        sentence_tags = []
-        for i in range(len(taged_sentence)):
-            taged_pair = taged_sentence[i]
-            text = taged_pair[0].lower()
-            tag = taged_pair[1]
-            text_idx = word_to_index[text]
-            tag_index = tag_to_index[tag]
-            sentence.append(text_idx)
-            sentence_tags.append(tag_index)
-        sentences.append(sentence)
-        tags.append(sentence_tags)
-
-    model.eval()
-    total_acc = 0
-    for i in range(len(sentences)):
-        text = sentences[i]
-        tag = tags[i]
-
-        # input transformations
-        text = torch.from_numpy(np.array(text))
-        tag = torch.from_numpy(np.array(tag))
-
-        # cast to tensor int
-        text = text.type('torch.LongTensor')
-        tag = tag.type('torch.LongTensor')
-
-        # reshape size
-        text = text.reshape(1, text.size()[0])
-        tag = tag.view(-1)
-
-        predictions = model(text)
-        predictions = predictions.view(-1, predictions.shape[-1])
-        acc = categorical_accuracy(predictions, tag, tag_pad_index)
-
-        total_acc += acc.item()
-
-    print(total_acc / len(sentences))
+    # torch.save(model, 'model.pt')
+    return model
 
 
 #  *********************************** CB LSTM added functionality (not api) *******************************************
@@ -1213,109 +1138,11 @@ def train_cblstm_model(data_fn, pretrained_embeddings_fn):
 
             loss = criterion(predictions, tags)
 
-            acc = categorical_accuracy(predictions, tags, tag_pad_index)
-
             loss.backward()
 
             optimizer.step()
 
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
 
-        print("Epoch: %s, loss: %s" % (e, epoch_loss / len(data_iter)))
-        print("Epoch: %s, acc: %s" % (e, epoch_acc / len(data_iter)))
-        # print(epoch_loss / len(data_iter))
-        # return epoch_loss / len(data_iter), epoch_acc / len(data_iter)
-        torch.save(model, 'cblstm_model.pt')
-
-
-def evaluate_cblstm(data_fn):
-    features_size = 3
-    tag_pad_index = 1
-    model = torch.load('cblstm_model.pt')
-
-    model = model.to(device)
-    word_to_index = model.word_to_index
-    tag_to_index = model.tag_to_index
-
-    tags_sentences = load_annotated_corpus(data_fn)
-    text_sentences = list(map(lambda x: list(map(lambda k: k[0], x)), tags_sentences))
-    features_sentences = list(map(lambda x: reduce(lambda t, k: t + word_to_binary(k), x, []), text_sentences))
-
-    sentences = []
-    tags = []
-
-    for i in range(len(tags_sentences)):
-        taged_sentence = tags_sentences[i]
-        sentence = []
-        sentence_tags = []
-        for i in range(len(taged_sentence)):
-            taged_pair = taged_sentence[i]
-            text = taged_pair[0].lower()
-            tag = taged_pair[1]
-            text_idx = word_to_index[text]
-            tag_index = tag_to_index[tag]
-            sentence.append(text_idx)
-            sentence_tags.append(tag_index)
-        sentences.append(sentence)
-        tags.append(sentence_tags)
-
-    model.eval()
-    total_acc = 0
-    for i in range(len(sentences)):
-        text = sentences[i]
-        features = features_sentences[i]
-        tag = tags[i]
-
-        # input transformations
-        text = torch.from_numpy(np.array(text))
-        features = torch.from_numpy(np.array(features))
-        tag = torch.from_numpy(np.array(tag))
-
-        # cast to tensor int
-        text = text.type('torch.LongTensor')
-        features = features.type('torch.LongTensor')
-        tag = tag.type('torch.LongTensor')
-
-        # reshape size
-        text = text.reshape(1, text.size()[0])
-        tag = tag.view(-1)
-        text_features_reshaped = features.reshape(1, text.shape[-1], features_size)
-
-        predictions = model(text, text_features_reshaped)
-        predictions = predictions.view(-1, predictions.shape[-1])
-        acc = categorical_accuracy(predictions, tag, tag_pad_index)
-        total_acc += acc.item()
-
-    print(total_acc / len(text_sentences))
-
-def evaluate_HMM(data_fn):
-    tags_sentences = load_annotated_corpus(data_fn)
-    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tuple(learn_params(tags_sentences))
-
-    total_acc = 0
-    for i in range(len(tags_sentences)):
-        tagged_sentence = tags_sentences[i]
-        un_tagged_text = list(map(lambda k: k[0], tagged_sentence))
-        true_tags_only = list(map(lambda k: k[1], tagged_sentence))
-        pred_tags = list(map(lambda x: x[1], hmm_tag_sentence(un_tagged_text, A, B)))
-        acc = list(map(lambda x,y: x == y, pred_tags, true_tags_only))
-        total_acc += sum(acc)/len(acc)
-
-    print(total_acc / len(tags_sentences))
-
-
-def evaluate_baseline(data_fn):
-    tags_sentences = load_annotated_corpus(data_fn)
-    allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = tuple(learn_params(tags_sentences))
-
-    total_acc = 0
-    for i in range(len(tags_sentences)):
-        tagged_sentence = tags_sentences[i]
-        un_tagged_text = list(map(lambda k: k[0], tagged_sentence))
-        true_tags_only = list(map(lambda k: k[1], tagged_sentence))
-        pred_tags = list(map(lambda x: x[1], baseline_tag_sentence(un_tagged_text, perWordTagCounts, allTagCounts)))
-        acc = list(map(lambda x,y: x == y, pred_tags, true_tags_only))
-        total_acc += sum(acc)/len(acc)
-
-    print(total_acc / len(tags_sentences))
+    # torch.save(model, 'cblstm_model.pt')
+    return model
