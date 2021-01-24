@@ -751,8 +751,6 @@ def build_corpus_text_df(train_tagged_sentences):
     Builds and return a pandas data frame of the given train tagged sentences.
     """
     sentences_and_tags_dicts = []
-    untagged_sentences = []
-    tags_sentences = []
     for sentence in train_tagged_sentences:
         concat_sen = ''
         concat_tags = ''
@@ -772,8 +770,6 @@ def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences, max_voc
     """
     df = build_corpus_text_df(train_tagged_sentences)
     df.to_csv('train_text_data.csv', index=False)
-
-    # text_field = Field(tokenize=get_tokenizer("basic_english"), lower=True, include_lengths=True, batch_first=True)
     text_field = Field(lower=True, batch_first=True)
     tags_field = Field(batch_first=True)
 
@@ -783,10 +779,6 @@ def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences, max_voc
     train_data = TabularDataset(path='train_text_data.csv', format='CSV', fields=fields, skip_header=True)
 
     # Iterators
-
-    # data_iter = BucketIterator(train_data, batch_size=batch_size, sort_key=lambda x: len(x.text),
-    #                            sort=True, sort_within_batch=True)
-
     data_iter = BucketIterator(train_data, batch_size=batch_size)
 
     # Vocabulary
@@ -850,28 +842,18 @@ class BiLSTMPOSTagger(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, text):
-        # text = [sent len, batch size]
-
         # pass text through embedding layer
         embedded = self.embedding(text)
         embedded = self.dropout(embedded)
-
-        # embedded = [sent len, batch size, emb dim]
 
         # pass embeddings into LSTM
         outputs, (hidden, cell) = self.lstm(embedded)
 
         # outputs holds the backward and forward hidden states in the final layer
         # hidden and cell are the backward and forward hidden and cell states at the final time-step
-
-        # output = [sent len, batch size, hid dim * n directions]
-        # hidden/cell = [n layers * n directions, batch size, hid dim]
-
         # we use our outputs to make a prediction of what the tag should be
         outputs = self.dropout(outputs)
         predictions = self.fc(outputs)
-
-        # predictions = [sent len, batch size, output dim]
 
         return predictions
 
