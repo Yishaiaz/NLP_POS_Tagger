@@ -465,7 +465,10 @@ def load_pretrained_embeddings(path, vocab=None):
         vocab (list): a list of words to have embeddings for. Defaults to None.
 
     """
-    return Vectors(name=path, cache=os.getcwd())
+    vectors = Vectors(name=path, cache=os.getcwd())
+    if vocab is not None:
+        vectors = vectors.get_vecs_by_tokens(vocab, True)
+    return vectors
 
 
 def train_rnn(model, train_data, val_data=None, input_rep=0):
