@@ -140,6 +140,21 @@ def test_tag_sentence():
     print(tagger.tag_sentence(sentence.split(), BiLSTM_case))
 
 
+def test_pipeline():
+    best_model_params = tagger.get_best_performing_model_params()
+    model_d = tagger.initialize_rnn_model(best_model_params)
+    sentences = tagger.load_annotated_corpus('trainTestData/en-ud-train.upos.tsv')
+    model_d = tagger.train_rnn(model_d, sentences)
+
+    sentence = "Tamir the AP comes this story :"
+    tags = "PROPN DET PROPN VERB DET NOUN PUNCT"
+    gold_sentence = [(sentence.split()[i], tags.split()[i]) for i in range(len(sentence.split()))]
+
+    pred_sentence = tagger.tag_sentence(sentence.split(), model_d)
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, pred_sentence)
+    print(correct, correctOOV, OOV)
+
+
 def main():
     # sentences = test_read_training()
     # allTagCounts, perWordTagCounts, transitionCounts, emissionCounts, A, B = test_learn_params(sentences)
@@ -158,8 +173,8 @@ def main():
     # test_rnn_count_correct()
     # test_baseline_count_correct()
     # test_hmm_count_correct()
-    test_tag_sentence()
-
+    # test_tag_sentence()
+    test_pipeline()
 
 if __name__ == '__main__':
     main()

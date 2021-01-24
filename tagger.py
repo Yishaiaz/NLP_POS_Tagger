@@ -557,7 +557,10 @@ def train_rnn(model, train_data, val_data=None, input_rep=0):
 
 
     # torch.save(rnn_model, 'model.pt')
-    return {'lstm': [rnn_model, input_rep]}
+    if input_rep == 0:
+        return {'blstm': [rnn_model, input_rep]}
+    else:
+        return {'cblstm': [rnn_model, input_rep]}
 
 
 def rnn_tag_sentence(sentence, model):
