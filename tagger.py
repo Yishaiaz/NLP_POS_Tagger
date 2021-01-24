@@ -9,19 +9,17 @@ to predict the part of speech sequence for a given sentence.
 
 import math
 import string
-from functools import reduce
-from math import log, isfinite
+from math import isfinite
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from torchtext import data
-from torchtext.data import Field, get_tokenizer, TabularDataset, BucketIterator
+from torchtext.data import Field, TabularDataset, BucketIterator
 from torchtext.vocab import Vectors
 import torch.optim as optim
 from collections import Counter
-
-import sys, os, time, platform, nltk, random
+import random
+import os
 
 path_separator = os.path.sep
 
@@ -737,6 +735,9 @@ def count_correct(gold_sentence, pred_sentence):
 #  *************************************** added functionality (not api) ***********************************************
 
 def get_possible_tags(word):
+    """
+    Return all possible word tags
+    """
     if word in perWordTagCounts:
         tags_count = perWordTagCounts[word].most_common()
         tags = list(map(lambda x: x[0], tags_count))
@@ -746,6 +747,9 @@ def get_possible_tags(word):
 
 
 def build_corpus_text_df(train_tagged_sentences):
+    """
+    Builds and return a pandas data frame of the given train tagged sentences.
+    """
     sentences_and_tags_dicts = []
     untagged_sentences = []
     tags_sentences = []
@@ -763,6 +767,9 @@ def build_corpus_text_df(train_tagged_sentences):
 
 
 def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences, max_vocab_size, min_frequency):
+    """
+    preprocess the train tagged sentences, and use BucketIterator for training.
+    """
     df = build_corpus_text_df(train_tagged_sentences)
     df.to_csv('train_text_data.csv', index=False)
 
@@ -792,6 +799,9 @@ def preprocess_data_for_RNN(vectors, batch_size, train_tagged_sentences, max_voc
 
 
 class BiLSTMPOSTagger(nn.Module):
+    """
+    A class of a vanilla bidirectional lstm
+    """
     def __init__(self,
                  input_dimension,
                  max_vocab_size,
@@ -866,80 +876,12 @@ class BiLSTMPOSTagger(nn.Module):
         return predictions
 
 
-def train_RNN_model(data_fn, pretrained_embeddings_fn):
-    batch_size = 32
-    epochs = 10
-
-    criterion = nn.CrossEntropyLoss()  # you can set the parameters as you like
-    vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
-    data_iter, pad_index, tag_pad_index, text_field, tags_field = preprocess_data_for_RNN(vectors, batch_size, data_fn)
-    params_d = {'input_dimension': len(text_field.vocab),
-                'embedding_dimension': 100,
-                'hidden_dim': 128,
-                'output_dimension': len(tags_field.vocab),
-                'num_of_layers': 2,
-                'dropout': 0.25,
-                'pad_idx': pad_index,
-                'word_to_index': text_field.vocab,
-                'tag_to_index': tags_field.vocab,
-                'cblstm': False}
-    model = initialize_rnn_model(params_d)
-
-    # set the model embedding
-    pretrained_embeddings = text_field.vocab.vectors
-    model.embedding.weight.data.copy_(pretrained_embeddings)
-
-    # set optimizer
-    optimizer = optim.Adam(model.parameters())
-
-    # set criterion
-    criterion = nn.CrossEntropyLoss(ignore_index=tag_pad_index)
-
-    model = model.to(device)
-    criterion = criterion.to(device)
-
-    epoch_loss = 0
-    epoch_acc = 0
-
-    model.train()
-    for e in range(epochs):
-        epoch_loss = 0
-        epoch_acc = 0
-
-        for batch in data_iter:
-            text = batch.text
-            tags = batch.tags
-
-            optimizer.zero_grad()
-
-            # text = [sent len, batch size]
-
-            predictions = model(text)
-
-            # predictions = [sent len, batch size, output dim]
-            # tags = [sent len, batch size]
-
-            predictions = predictions.view(-1, predictions.shape[-1])
-            tags = tags.view(-1)
-
-            # predictions = [sent len * batch size, output dim]
-            # tags = [sent len * batch size]
-
-            loss = criterion(predictions, tags)
-
-            loss.backward()
-
-            optimizer.step()
-
-            epoch_loss += loss.item()
-
-    # torch.save(model, 'model.pt')
-    return model
-
-
 #  *********************************** CB LSTM added functionality (not api) *******************************************
 
 def word_to_binary(word: str):
+    """
+    extract word binary features.
+    """
     bits = [0 for x in range(3)]
     if word in string.punctuation:
         return bits
@@ -953,6 +895,9 @@ def word_to_binary(word: str):
 
 
 def preprocess_data_for_cblstm(vectors, batch_size, train_tagged_sentences, max_vocab_size, min_frequency):
+    """
+    preprocess the train tagged sentences, and use BucketIterator for training.
+    """
     def transform_to_cs_df(df: pd.DataFrame):
         all_sentences = df.loc[:, ['text']]
         all_cs_bits = list()
